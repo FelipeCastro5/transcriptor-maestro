@@ -27,8 +27,8 @@ class Settings(BaseSettings):
     # Parámetros Fuzzy Matching
     FUZZY_THRESHOLD: float = 0.70  # Similitud mínima (70%) para auto-asignar responsable
 
-    # Formatos de audio permitidos
-    ALLOWED_AUDIO_EXTENSIONS: list[str] = [".mp3", ".wav", ".m4a", ".flac", ".ogg"]
+    # Formatos de audio y texto permitidos
+    ALLOWED_AUDIO_EXTENSIONS: list[str] = [".mp3", ".wav", ".m4a", ".flac", ".ogg", ".txt"]
     MAX_AUDIO_SIZE_MB: int = 250
 
     @property

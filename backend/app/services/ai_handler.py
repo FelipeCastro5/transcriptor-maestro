@@ -27,7 +27,7 @@ class AIHandler:
     # =========================================================================
     # 1. ETAPA DE TRANSCRIPCIÓN (ASR: Audio -> Texto)
     # =========================================================================
-    def transcribir_audio(self, ruta_audio: str, chunking: bool = True) -> str:
+    def transcribir_audio(self, ruta_audio: str, chunking: bool = True, modelo_whisper: str = "medium") -> str:
         """
         Transcribe el audio localmente.
         Si la librería transformers está disponible con pipeline de Whisper, la ejecuta.
@@ -37,6 +37,11 @@ class AIHandler:
 
         if not os.path.exists(ruta_audio):
             raise FileNotFoundError(f"Audio no encontrado en {ruta_audio}")
+            
+        if ruta_audio.lower().endswith('.txt'):
+            print(f"[ASR] Archivo de texto detectado, saltando Whisper...")
+            with open(ruta_audio, 'r', encoding='utf-8') as f:
+                return f.read()
 
         try:
             from transformers import pipeline
@@ -46,7 +51,7 @@ class AIHandler:
             device = "cuda" if torch.cuda.is_available() else "cpu"
             transcriber = pipeline(
                 "automatic-speech-recognition",
-                model="openai/whisper-small",
+                model=f"openai/whisper-{modelo_whisper}",
                 device=device,
                 torch_dtype=torch.float32 if device == "cpu" else torch.float16,
             )
@@ -171,7 +176,9 @@ Responde SOLO con una lista JSON de objetos con los campos:
             system_prompt="Eres un asistente que extrae acuerdos en formato JSON estricto.",
             reunion_id=reunion_id,
             etapa="LLM_EXTRACCION",
-            db=db
+            db=db,
+            llm_preferido=llm_preferido,
+            modelo_llm=modelo_llm
         )
 
         if respuesta_cruda:
@@ -214,7 +221,9 @@ Responde únicamente con el párrafo del resumen ejecutivo."""
             system_prompt="Eres un analista de proyectos que redacta resúmenes ejecutivos breves.",
             reunion_id=reunion_id,
             etapa="LLM_RESUMEN",
-            db=db
+            db=db,
+            llm_preferido=llm_preferido,
+            modelo_llm=modelo_llm
         )
 
         if resumen and len(resumen.strip()) > 20:
@@ -265,17 +274,20 @@ Responde únicamente con el párrafo del resumen ejecutivo."""
         nombre_archivo: str,
         ruta_audio: str,
         estrategia: EstrategiaIA = EstrategiaIA.ESTRATEGIA_5_HIBRIDO_MADURO,
-        db: Optional[Session] = None
+        modelo_whisper: str = "medium",
+        db: Optional[Session] = None,
+        llm_preferido: str = "deepseek",
+        modelo_llm: str = "deepseek-chat"
     ) -> Dict[str, Any]:
         """
         Ejecuta el ciclo de vida completo de análisis de la reunión.
         """
         inicio = time.time()
-        print(f"[AIHandler] Procesando reunion {id_reunion} con Estrategia {estrategia.value}")
+        print(f"[AIHandler] Procesando reunion {id_reunion} con Estrategia {estrategia.value} y Whisper {modelo_whisper}")
 
         # 1. Transcripción (con Chunking de 30s en estrategias 2 y 5)
         usar_chunking = estrategia in [EstrategiaIA.ESTRATEGIA_2_HUGGINGFACE_OPEN, EstrategiaIA.ESTRATEGIA_5_HIBRIDO_MADURO]
-        transcripcion = self.transcribir_audio(ruta_audio, chunking=usar_chunking)
+        transcripcion = self.transcribir_audio(ruta_audio, chunking=usar_chunking, modelo_whisper=modelo_whisper)
 
         # Guardar transcripción en storage/salidas
         ruta_txt = settings.full_output_path / f"{id_reunion}_transcripcion.txt"

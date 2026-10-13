@@ -33,6 +33,14 @@ async def get_acuerdos_por_reunion(id_reunion: str):
     "/{id_acuerdo}/estado",
     response_model=ResponseDto[AcuerdoResponse],
     summary="Actualizar estado de un acuerdo",
+    responses={
+        200: {"description": "Operación exitosa"},
+        400: {"description": "Solicitud inválida o archivo no soportado"},
+        404: {"description": "Recurso no encontrado"},
+        413: {"description": "Entidad solicitada demasiado grande (ej. archivo > 250MB)"},
+        422: {"description": "Error de validación en los datos enviados"},
+        500: {"description": "Error interno del servidor"}
+    },
     description="Permite cambiar el estado de un compromiso a 'pendiente', 'completado' o 'atrasado'."
 )
 async def update_estado_acuerdo(id_acuerdo: str, body: AcuerdoUpdateEstado):

@@ -89,7 +89,7 @@ class ReunionService:
         finally:
             db.close()
 
-    def procesar_tarea_segundo_plano(self, id_reunion: str, estrategia: EstrategiaIA):
+    def procesar_tarea_segundo_plano(self, id_reunion: str, estrategia: EstrategiaIA, modelo_whisper: str = "medium", llm_preferido: str = "deepseek", modelo_llm: str = "deepseek-chat"):
         db: Session = SessionLocal()
         try:
             reunion = db.query(Reunion).filter(Reunion.id == id_reunion).first()
@@ -97,7 +97,7 @@ class ReunionService:
                 return
 
             reunion.estado_proceso = EstadoReunion.PROCESANDO.value
-            reunion.progreso_estimado = f"Transcribiendo y analizando con Estrategia {estrategia.value}..."
+            reunion.progreso_estimado = f"Transcribiendo y analizando con Estrategia {estrategia.value} (Whisper {modelo_whisper})..."
             reunion.actualizado_en = datetime.utcnow()
             db.commit()
 
@@ -107,7 +107,10 @@ class ReunionService:
                 nombre_archivo=reunion.nombre_archivo,
                 ruta_audio=reunion.ruta_audio,
                 estrategia=estrategia,
-                db=db
+                modelo_whisper=modelo_whisper,
+                db=db,
+                llm_preferido=llm_preferido,
+                modelo_llm=modelo_llm
             )
 
             catalogo = db.query(Responsable).filter(Responsable.activo == True).all()

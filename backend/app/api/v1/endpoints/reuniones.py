@@ -18,13 +18,23 @@ router = APIRouter()
     response_model=ResponseDto[ReunionUploadResponse],
     status_code=status.HTTP_202_ACCEPTED,
     summary="Subir archivo de audio de reunión",
-    description="Recibe un archivo de audio, lo valida, almacena y opcionalmente inicia su procesamiento con Whisper y LLM en segundo plano."
+    description="Recibe un archivo de audio, lo valida, almacena y opcionalmente inicia su procesamiento con Whisper y LLM en segundo plano.",
+    responses={
+        202: {"description": "Audio aceptado y encolado para procesamiento"},
+        400: {"description": "Formato de audio no válido"},
+        413: {"description": "Archivo supera el límite de tamaño"},
+        422: {"description": "Error de validación en parámetros"},
+        500: {"description": "Error al guardar o procesar archivo"}
+    }
 )
 async def upload_audio(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     procesar_inmediato: bool = Query(True, description="Si es True, inicia la transcripción y extracción automáticamente"),
-    estrategia: EstrategiaIA = Query(EstrategiaIA.ESTRATEGIA_5_HIBRIDO_MADURO, description="Estrategia del Handler a ejecutar")
+    estrategia: EstrategiaIA = Query(EstrategiaIA.ESTRATEGIA_5_HIBRIDO_MADURO, description="Estrategia del Handler a ejecutar"),
+    modelo_whisper: str = Query("medium", description="Modelo Whisper a usar (small, medium, large)"),
+    llm_preferido: str = Query("deepseek", description="LLM preferido (deepseek, openai)"),
+    modelo_llm: str = Query("deepseek-chat", description="Modelo de LLM específico (ej. deepseek-chat, gpt-4o-mini)")
 ):
     registro = reunion_service.guardar_audio(file)
     id_reunion = registro["id_reunion"]
@@ -33,7 +43,10 @@ async def upload_audio(
         background_tasks.add_task(
             reunion_service.procesar_tarea_segundo_plano,
             id_reunion=id_reunion,
-            estrategia=estrategia
+            estrategia=estrategia,
+            modelo_whisper=modelo_whisper,
+            llm_preferido=llm_preferido,
+            modelo_llm=modelo_llm
         )
 
     data = ReunionUploadResponse(
@@ -52,12 +65,23 @@ async def upload_audio(
     "/{id_reunion}/procesar",
     response_model=ResponseDto[ReunionEstadoResponse],
     summary="Disparar procesamiento manual de una reunión",
-    description="Permite ejecutar o re-ejecutar el pipeline de análisis seleccionando una estrategia específica (1 a 5)."
+    description="Permite ejecutar o re-ejecutar el pipeline de análisis seleccionando una estrategia específica (1 a 5).",
+    responses={
+        200: {"description": "Operación exitosa"},
+        400: {"description": "Solicitud inválida o archivo no soportado"},
+        404: {"description": "Recurso no encontrado"},
+        413: {"description": "Entidad solicitada demasiado grande (ej. archivo > 250MB)"},
+        422: {"description": "Error de validación en los datos enviados"},
+        500: {"description": "Error interno del servidor"}
+    }
 )
 async def procesar_reunion(
     id_reunion: str,
     body: ProcesarReunionRequest,
-    background_tasks: BackgroundTasks
+    background_tasks: BackgroundTasks,
+    modelo_whisper: str = Query("medium", description="Modelo Whisper a usar (small, medium, large)"),
+    llm_preferido: str = Query("deepseek", description="LLM preferido (deepseek, openai)"),
+    modelo_llm: str = Query("deepseek-chat", description="Modelo de LLM específico (ej. deepseek-chat, gpt-4o-mini)")
 ):
     registro = reunion_service.obtener_estado(id_reunion)
     if not registro:
@@ -69,7 +93,10 @@ async def procesar_reunion(
     background_tasks.add_task(
         reunion_service.procesar_tarea_segundo_plano,
         id_reunion=id_reunion,
-        estrategia=body.estrategia
+        estrategia=body.estrategia,
+        modelo_whisper=modelo_whisper,
+        llm_preferido=llm_preferido,
+        modelo_llm=modelo_llm
     )
 
     data = ReunionEstadoResponse(
@@ -89,7 +116,15 @@ async def procesar_reunion(
 @router.get(
     "/{id_reunion}/estado",
     response_model=ResponseDto[ReunionEstadoResponse],
-    summary="Consultar estado de procesamiento de una reunión"
+    summary="Consultar estado de procesamiento de una reunión",
+    responses={
+        200: {"description": "Operación exitosa"},
+        400: {"description": "Solicitud inválida o archivo no soportado"},
+        404: {"description": "Recurso no encontrado"},
+        413: {"description": "Entidad solicitada demasiado grande (ej. archivo > 250MB)"},
+        422: {"description": "Error de validación en los datos enviados"},
+        500: {"description": "Error interno del servidor"}
+    }
 )
 async def get_estado_reunion(id_reunion: str):
     registro = reunion_service.obtener_estado(id_reunion)
@@ -113,7 +148,15 @@ async def get_estado_reunion(id_reunion: str):
     "/{id_reunion}/resultados",
     response_model=ResponseDto[ReunionDetalleResponse],
     summary="Obtener resultados completos de la reunión",
-    description="Retorna la transcripción íntegra, el resumen ejecutivo y el listado de acuerdos detectados."
+    description="Retorna la transcripción íntegra, el resumen ejecutivo y el listado de acuerdos detectados.",
+    responses={
+        200: {"description": "Operación exitosa"},
+        400: {"description": "Solicitud inválida o archivo no soportado"},
+        404: {"description": "Recurso no encontrado"},
+        413: {"description": "Entidad solicitada demasiado grande (ej. archivo > 250MB)"},
+        422: {"description": "Error de validación en los datos enviados"},
+        500: {"description": "Error interno del servidor"}
+    }
 )
 async def get_resultados_reunion(id_reunion: str):
     detalle = reunion_service.obtener_detalle(id_reunion)
@@ -128,7 +171,15 @@ async def get_resultados_reunion(id_reunion: str):
 @router.get(
     "/",
     response_model=ResponseDto[List[ReunionResumen]],
-    summary="Listar todas las reuniones registradas"
+    summary="Listar todas las reuniones registradas",
+    responses={
+        200: {"description": "Operación exitosa"},
+        400: {"description": "Solicitud inválida o archivo no soportado"},
+        404: {"description": "Recurso no encontrado"},
+        413: {"description": "Entidad solicitada demasiado grande (ej. archivo > 250MB)"},
+        422: {"description": "Error de validación en los datos enviados"},
+        500: {"description": "Error interno del servidor"}
+    }
 )
 async def list_reuniones():
     reuniones_raw = reunion_service.listar_reuniones()

@@ -22,7 +22,7 @@ class VACASManager:
     def __init__(self):
         self.simular_fallo_primaria: bool = False  # Modo de prueba (Chaos Testing)
 
-    def _llamar_deepseek(self, prompt: str, system_prompt: str) -> Optional[str]:
+    def _llamar_deepseek(self, prompt: str, system_prompt: str, modelo: str = "deepseek-chat") -> Optional[str]:
         """Llamada a la VACA Primaria (DeepSeek)."""
         if self.simular_fallo_primaria:
             print("[VACAS] SIMULACIÓN DE FALLO: Forzando caída de VACA Primaria (DeepSeek).")
@@ -38,7 +38,7 @@ class VACASManager:
             "Content-Type": "application/json"
         }
         payload = {
-            "model": "deepseek-chat",
+            "model": modelo,
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": prompt}
@@ -54,7 +54,7 @@ class VACASManager:
                 return data["choices"][0]["message"]["content"].strip()
             raise httpx.HTTPStatusError(f"HTTP {res.status_code}", request=res.request, response=res)
 
-    def _llamar_replica_secundaria(self, prompt: str, system_prompt: str) -> Optional[str]:
+    def _llamar_openai(self, prompt: str, system_prompt: str, modelo: str = "gpt-4o-mini") -> Optional[str]:
         """Llamada a la VACA Réplica (OpenAI / Proveedor secundario si configurado)."""
         api_key = settings.OPENAI_API_KEY
         if not api_key:
@@ -65,7 +65,7 @@ class VACASManager:
             "Content-Type": "application/json"
         }
         payload = {
-            "model": "gpt-4o-mini",
+            "model": modelo,
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": prompt}
@@ -86,7 +86,9 @@ class VACASManager:
         system_prompt: str,
         reunion_id: str,
         etapa: str,
-        db: Optional[Session] = None
+        db: Optional[Session] = None,
+        llm_preferido: str = "deepseek",
+        modelo_llm: str = "deepseek-chat"
     ) -> Tuple[Optional[str], str, bool, int]:
         """
         Ejecuta la inferencia aplicando el conmutador de contingencia.
@@ -95,29 +97,41 @@ class VACASManager:
         inicio = time.time()
         conmutacion_ocurrida = False
         resultado = None
-        proveedor_final = self.PROVEEDOR_PRIMARIO
+
+        if llm_preferido.lower() == "openai":
+            func_primaria = lambda: self._llamar_openai(prompt, system_prompt, modelo_llm)
+            func_secundaria = lambda: self._llamar_deepseek(prompt, system_prompt, "deepseek-chat")
+            nombre_primaria = "OPENAI_API"
+            nombre_secundaria = "DEEPSEEK_REPLICA"
+        else:
+            func_primaria = lambda: self._llamar_deepseek(prompt, system_prompt, modelo_llm)
+            func_secundaria = lambda: self._llamar_openai(prompt, system_prompt, "gpt-4o-mini")
+            nombre_primaria = "DEEPSEEK_API"
+            nombre_secundaria = "OPENAI_REPLICA"
+
+        proveedor_final = nombre_primaria
         fallo_detectado = False
 
         # 1. Intentar con VACA Primaria
         try:
-            resultado = self._llamar_deepseek(prompt, system_prompt)
+            resultado = func_primaria()
             if resultado is None:
                 fallo_detectado = True
         except Exception as e:
-            print(f"[VACAS] Fallo en VACA Primaria ({e}). Disparando conmutación en caliente...")
+            print(f"[VACAS] Fallo en VACA Primaria ({e}). Disparando conmutacion en caliente...")
             fallo_detectado = True
 
-        # 2. Conmutación a VACA Réplica si la primaria falló
+        # 2. Conmutacion a VACA Replica si la primaria fallo
         if fallo_detectado or resultado is None:
             conmutacion_ocurrida = True
             try:
-                resultado = self._llamar_replica_secundaria(prompt, system_prompt)
+                resultado = func_secundaria()
                 if resultado:
-                    proveedor_final = self.PROVEEDOR_REPLICA
+                    proveedor_final = nombre_secundaria
                 else:
                     proveedor_final = self.PROVEEDOR_EMERGENCIA
             except Exception as e:
-                print(f"[VACAS] Fallo en Réplica secundaria ({e}). Activando VACA de Emergencia...")
+                print(f"[VACAS] Fallo en Replica secundaria ({e}). Activando VACA de Emergencia...")
                 proveedor_final = self.PROVEEDOR_EMERGENCIA
 
         latencia_ms = int((time.time() - inicio) * 1000)
