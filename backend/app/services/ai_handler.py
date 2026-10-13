@@ -133,7 +133,9 @@ class AIHandler:
         texto: str,
         estrategia: EstrategiaIA,
         reunion_id: str,
-        db: Optional[Session] = None
+        db: Optional[Session] = None,
+        llm_preferido: str = "deepseek",
+        modelo_llm: str = "deepseek-chat"
     ) -> List[Dict[str, Any]]:
         """
         Extracción con LLM integrando contingencia VACAS y auditoría del Perceptrón.
@@ -200,7 +202,9 @@ Responde SOLO con una lista JSON de objetos con los campos:
         texto: str,
         acuerdos: List[Dict[str, Any]],
         reunion_id: str,
-        db: Optional[Session] = None
+        db: Optional[Session] = None,
+        llm_preferido: str = "deepseek",
+        modelo_llm: str = "deepseek-chat"
     ) -> str:
         """
         Segunda llamada al LLM para generar el Resumen Ejecutivo, protegida con VACAS y auditada.
@@ -298,7 +302,9 @@ Responde únicamente con el párrafo del resumen ejecutivo."""
         if estrategia == EstrategiaIA.ESTRATEGIA_1_REGLAS_OFFLINE:
             acuerdos_crudos = self._extraer_reglas_offline(transcripcion)
         else:
-            acuerdos_crudos = self._extraer_acuerdos_llm(transcripcion, estrategia, id_reunion, db)
+            acuerdos_crudos = self._extraer_acuerdos_llm(
+                transcripcion, estrategia, id_reunion, db, llm_preferido=llm_preferido, modelo_llm=modelo_llm
+            )
 
         # Dar formato estructurado a cada acuerdo
         acuerdos_formateados = []
@@ -316,7 +322,9 @@ Responde únicamente con el párrafo del resumen ejecutivo."""
 
         # 3. Generación de Resumen Ejecutivo con VACAS (Estrategia 5)
         if estrategia == EstrategiaIA.ESTRATEGIA_5_HIBRIDO_MADURO:
-            resumen_ejecutivo = self._generar_resumen_ejecutivo(transcripcion, acuerdos_formateados, id_reunion, db)
+            resumen_ejecutivo = self._generar_resumen_ejecutivo(
+                transcripcion, acuerdos_formateados, id_reunion, db, llm_preferido=llm_preferido, modelo_llm=modelo_llm
+            )
         else:
             resumen_ejecutivo = f"Procesamiento concluido con {len(acuerdos_formateados)} tareas detectadas bajo estrategia {estrategia.name}."
 

@@ -146,6 +146,69 @@ Abre tu navegador web e ingresa a las siguientes URLs:
 
 ---
 
+## 📖 Paso 8: Guía Detallada de Uso de Swagger UI (`/docs`)
+
+Swagger UI no es solo una página de lectura; es una consola interactiva donde puedes probar todos los endpoints sin programar frontend ni usar herramientas externas como Postman.
+
+### ¿Cómo probar un endpoint en Swagger?
+1. **Entra a:** [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs).
+2. **Localiza el endpoint que quieres probar:** Los endpoints están agrupados por módulos (Reuniones, Acuerdos, Responsables, etc.).
+3. **Despliega el endpoint:** Haz clic sobre la barra del endpoint (por ejemplo, `GET /api/v1/responsables`).
+4. **Activa el modo de prueba:** En la esquina superior derecha del bloque desplegado, haz clic en el botón blanco **"Try it out"**.
+5. **Ingresa los parámetros (si aplica):**
+   * Para consultas `GET`: completa los filtros o déjalos vacíos para obtener todos.
+   * Para subir archivos (`POST /api/v1/reuniones/upload`): verás un selector **"Choose File"** donde puedes elegir un audio local (`.mp3` o `.wav`).
+6. **Ejecuta la petición:** Haz clic en el botón azul grande **"Execute"**.
+7. **Analiza la respuesta (Responses):**
+   * **Server response (Code 200/201/202):** Verás el JSON devuelto siguiendo el estándar `ResponseDto`:
+     ```json
+     {
+       "code": 200,
+       "message": "Operación exitosa",
+       "data": [ ... ]
+     }
+     ```
+   * Si algo falla (ej. archivo no soportado o ID inexistente), verás el código HTTP correspondiente (400, 404, 422) con el detalle del error en `message`.
+
+---
+
+## 🗄️ Paso 9: Gestión de Archivos Temporales (`storage/`)
+
+El sistema cuenta con una carpeta local `backend/storage/` dividida en dos rutas:
+
+| Directorio | Propósito | ¿Por qué NO se sube a Git? |
+| :--- | :--- | :--- |
+| **`storage/audios_temp/`** | Guarda físicamente los archivos de audio (`.mp3`, `.wav`) recibidos por `POST /upload` mientras el modelo de IA los procesa. | **Privacidad y tamaño:** Los audios contienen conversaciones confidenciales y su peso saturaría el repositorio. |
+| **`storage/salidas/`** | Guarda respaldos en texto plano generados por la IA (`_transcripcion.txt`, `_reporte.md`, `_acuerdos.json`). | **Confidencialidad:** La persistencia oficial ya se realiza en la base de datos PostgreSQL; estos son archivos derivados del pipeline. |
+
+> En `.gitignore` están excluidos todos sus contenidos (`*`), pero se conservan los archivos `.gitkeep` para que las carpetas existan al clonar el proyecto.
+
+### 🤖 Limpieza Automática tras Procesamiento Exitoso
+El pipeline de backend incluye limpieza automática: cuando una reunión se transcribe, se extraen los acuerdos y se guarda todo en PostgreSQL (`COMPLETADO`), el sistema **elimina automáticamente del disco el archivo de audio temporal y sus salidas intermedias**. Todo queda persistido en la base de datos.
+
+### 🧹 Limpieza Manual y Diagnóstico por API
+Además del script de consola, tienes disponibles dos endpoints en Swagger:
+
+1. **`GET /api/v1/sistema/estado-cache`**:  
+   Permite al Frontend o a un administrador consultar si hay archivos acumulados, cuántos hay y cuánto pesan en MB.
+2. **`POST /api/v1/sistema/limpiar-cache`**:  
+   Ejecuta la purga inmediata de archivos temporales (permite filtrar con `solo_audios=true` o `solo_salidas=true`).
+
+### 💻 Limpieza por Consola (Script Python)
+```powershell
+# 1. Simulación (ver qué se borraría sin eliminar nada real):
+py scripts/clean_storage.py --dry-run
+
+# 2. Limpieza completa de ambas carpetas:
+py scripts/clean_storage.py
+
+# 3. Limpiar únicamente los audios pesados:
+py scripts/clean_storage.py --audios-only
+```
+
+
+---
+
 ## ❓ Preguntas Frecuentes y Solución de Errores
 
 | Síntoma / Error | Causa | Solución |

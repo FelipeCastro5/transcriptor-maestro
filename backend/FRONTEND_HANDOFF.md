@@ -28,26 +28,17 @@ Aquí tienes la **Guía de Handoff y Especificación Técnica para tu compañero
 
 
 
-El frontend se divide en **4 vistas principales**:
-
-
+El frontend se divide en **5 vistas o módulos principales**:
 
 ```text
-
-┌────────────────────────────────────────────────────────────────────────┐
-
-│                          VISTAS FRONTEND                               │
-
-├───────────────────┬───────────────────┬────────────────┬───────────────┤
-
-│ 1. Subida & Carga │ 2. Minuta / Detalle│ 3. Kanban /    │ 4. Equipo /   │
-
-│    (Drag & Drop   │    (Resumen, Cita │    Seguimiento │    Catálogo   │
-
-│    + Polling)     │    y Tareas)      │    de Acuerdos │    (Fuzzy M.) │
-
-└───────────────────┴───────────────────┴────────────────┴───────────────┘
-
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                                   VISTAS FRONTEND                                      │
+├─────────────────────┬──────────────────┬─────────────────┬──────────────┬──────────────┤
+│ 1. Subida & Config  │ 2. Minuta /      │ 3. Historial de │ 4. Kanban /  │ 5. Equipo /  │
+│    (Drag & Drop +   │    Resultados    │    Reuniones    │    Acuerdos  │    Catálogo  │
+│    Parámetros IA)   │    (Transcripción│    (Análisis    │    (Estados) │    (Fuzzy M.)│
+│                     │    y Acuerdos)   │    Previos)     │              │              │
+└─────────────────────┴──────────────────┴─────────────────┴──────────────┴──────────────┘
 ```
 
 
@@ -56,70 +47,67 @@ El frontend se divide en **4 vistas principales**:
 
 
 
-### Caso de Uso 1: Carga de Audio y Espera Asíncrona (Upload & Polling)
+### Caso de Uso 1: Carga de Audio, Personalización y Espera Asíncrona (Upload & Polling)
 
-* **Objetivo:** El usuario sube el audio de una reunión y ve el avance sin que la página se congele.
+* **Objetivo:** El usuario sube el audio de una reunión, personaliza los parámetros de IA si lo desea, y ve el avance sin que la página se congele.
 
 * **Flujo UX:**
-
   1. El usuario arrastra un archivo (`.mp3`, `.wav`, etc.) a una zona de carga (*Drag & Drop*).
-
-  2. Puede elegir la estrategia de IA en un selector (por defecto: **Estrategia 5: Híbrido Maduro**).
-
-  3. Al pulsar *"Procesar Reunión"*, se envía el archivo al backend (`POST /reuniones/upload`).
-
+  2. **Panel de Configuración de IA (Opcional / Desplegable):**
+     * **Estrategia IA (`estrategia`):**
+       * `5`: Híbrido Maduro con Hot-Failover VACAS (*Recomendado por defecto*).
+       * `4`: Prompt Avanzado (optimizado para lenguaje informal/coloquial).
+       * `1`: Reglas Lingüísticas Offline (100% local, sin consumo de API).
+     * **Tamaño de Modelo Whisper (`modelo_whisper`):** `"small"` (rápido), `"medium"` (*por defecto*), `"large"` (máxima precisión).
+     * **Proveedor LLM (`llm_preferido`):** `"deepseek"` (*por defecto*) o `"openai"`.
+     * **Modelo LLM (`modelo_llm`):** `"deepseek-chat"`, `"gpt-4o-mini"`, etc.
+  3. Al pulsar *"Procesar Reunión"*, se envía el archivo al backend (`POST /reuniones/upload` con los query params elegidos).
   4. El backend responde de inmediato (`202 Accepted`) con un `id_reunion`.
-
-  5. **Manejo en el Front:** Mostrar una pantalla de carga (*Skeleton / Spinner*) con el mensaje que devuelve el backend.
-
+  5. **Manejo en el Front:** Mostrar una pantalla de carga (*Skeleton / Spinner / Barra de progreso*) con el mensaje que devuelve el backend.
   6. El front inicia un sondeo (*polling*) cada **2 a 3 segundos** a `GET /reuniones/{id}/estado`.
-
-  7. Cuando el campo `estado` cambie a `"COMPLETADO"`, redirigir a la **Vista 2 (Detalle)**. Si cambia a `"FALLIDO"`, mostrar alerta de error.
-
-
+  7. Cuando el campo `estado` cambie a `"COMPLETADO"`, redirigir a la **Vista 2 (Detalle / Minuta)**. Si cambia a `"FALLIDO"`, mostrar alerta de error.
 
 ---
-
-
 
 ### Caso de Uso 2: Minuta Inteligente y Auditoría de Tareas (Vista Detalle)
 
 * **Objetivo:** Mostrar los resultados de la reunión: qué se habló, qué tareas salieron y quién las debe hacer.
 
 * **Flujo UX:**
-
   1. Al cargar la pantalla, llama a `GET /reuniones/{id_reunion}/resultados`.
-
   2. **Bloque Superior:** Nombre de archivo, tiempo de cómputo en segundos y badge de estado.
-
   3. **Bloque 1 (Resumen Ejecutivo):** Una tarjeta destacada con el párrafo de 3 a 5 líneas generado por la IA.
-
   4. **Bloque 2 (Tabla de Acuerdos):** Lista de tareas extraídas.
-
      * Cada fila muestra: Tarea, **Responsable asignado** (con un indicador de coincidencia Fuzzy ej: $95\%$), Fecha límite y Estado (`Pendiente`, `Completado`, `Atrasado`).
-
      * **Elemento Clave UX:** Botón o tooltip con *"Ver Cita Textual"*, que muestra el `fragmento_original` del audio para que el usuario audite que la IA no alucinó la tarea.
-
   5. **Bloque 3 (Transcripción Completa):** Acordeón colapsable con el texto completo del audio.
-
-
 
 ---
 
+### Caso de Uso 3: Historial de Reuniones y Acceso a Análisis Previos
 
+* **Objetivo:** Permitir al usuario explorar todas las reuniones analizadas anteriormente y reabrir sus actas y compromisos en cualquier momento.
 
-### Caso de Uso 3: Tablero de Seguimiento de Acuerdos (Kanban o Tabla Interactiva)
+* **Flujo UX:**
+  1. Al entrar a la sección de "Historial", el front consume `GET /api/v1/reuniones/`.
+  2. Muestra un listado en tabla o tarjetas interactivas con:
+     * Nombre del archivo de audio original (`nombre_archivo`)
+     * Identificador (`id_reunion`)
+     * Badge de estado (`COMPLETADO`, `PROCESANDO`, `FALLIDO`)
+     * Extracto del resumen ejecutivo (`resumen_ejecutivo`)
+     * Contador de acuerdos (`total_acuerdos`, ej. "3 acuerdos")
+  3. **Acción de apertura:** Al hacer clic sobre cualquier fila o botón *"Ver Análisis"*, el frontend navega a la **Vista 2 (Minuta)** cargando los resultados con `GET /api/v1/reuniones/{id_reunion}/resultados`.
+
+---
+
+### Caso de Uso 4: Tablero de Seguimiento de Acuerdos (Kanban o Tabla Interactiva)
 
 * **Objetivo:** Gestionar el ciclo de vida de los compromisos a lo largo de las semanas.
 
 * **Flujo UX:**
-
-  1. Consulta todos los acuerdos con `GET /acuerdos/`.
-
+  1. Consulta todos los acuerdos con `GET /acuerdos/` (o filtrados por reunión con `?id_reunion=MEET-XXXX`).
   2. Muestra un tablero con 3 columnas o estados:
-
      * 🟡 **Pendiente**
-
      * 🟢 **Completado**
 
      * 🔴 **Atrasado**
@@ -172,14 +160,19 @@ El frontend se divide en **4 vistas principales**:
 
 * **Content-Type:** `multipart/form-data`
 
-* **Query Params (Opcionales):**
-
+* **Query Params de Configuración (Opcionales):**
   * `procesar_inmediato` (boolean, default: `true`): Inicia Whisper y LLM de inmediato.
-
-  * `estrategia` (integer, default: `5`): Estrategia de IA (1=Offline, 4=Prompt Avanzado, 5=Híbrido Maduro).
+  * `estrategia` (integer, default: `5`): Estrategia de IA:
+    * `5` = Híbrido Maduro con failover VACAS (*Recomendado*).
+    * `4` = Prompt Avanzado (conversaciones informales).
+    * `3` = Whisper + Prompt elemental.
+    * `2` = Chunking 30s Hugging Face.
+    * `1` = Reglas offline locales (sin LLM).
+  * `modelo_whisper` (string, default: `"medium"`): `"small"`, `"medium"`, `"large"`.
+  * `llm_preferido` (string, default: `"deepseek"`): `"deepseek"`, `"openai"`.
+  * `modelo_llm` (string, default: `"deepseek-chat"`): `"deepseek-chat"`, `"gpt-4o-mini"`, etc.
 
 * **Body (Form-Data):**
-
   * `file`: Archivo binario de audio (`.mp3`, `.wav`, `.m4a`, `.flac`).
 
 * **Respuesta (`202 Accepted`):**
@@ -499,6 +492,15 @@ El frontend se divide en **4 vistas principales**:
   * Body: `{"activar_fallo": true}` (Útil para hacer una demo en vivo de cómo el sistema no se cae ante fallos de la IA).
 
 
+
+### 9. Diagnóstico y Limpieza de Almacenamiento (Caché en Disco)
+
+* `GET /api/v1/sistema/estado-cache`:
+  * Devuelve si hay archivos temporales huérfanos acumulados, conteo de audios y salidas, y el total en MB (`total_tamano_mb`).
+  * Ideal para un badge en el Header o panel de Ajustes: *"Caché en disco: 1.2 MB"*.
+* `POST /api/v1/sistema/limpiar-cache`:
+  * Purga manual a demanda con un botón *"Vaciar Almacenamiento Temporal"*.
+  * Query params opcionales: `?solo_audios=true` o `?solo_salidas=true`.
 
 ---
 

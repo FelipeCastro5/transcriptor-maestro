@@ -57,7 +57,8 @@ prototipos/
     │   ├── schemas/               # Esquemas Pydantic y ResponseDto
     │   └── services/              # Lógica de negocio, IA Handler, VACAS y Fuzzy Matching
     ├── scripts/
-    │   └── init_db.py             # Script utilitario para verificar/crear la BD en PostgreSQL
+    │   ├── init_db.py             # Script utilitario para verificar/crear la BD en PostgreSQL
+    │   └── clean_storage.py       # Script para limpieza de audios y archivos temporales
     └── storage/                   # Almacenamiento local temporal de audios y salidas
 ```
 

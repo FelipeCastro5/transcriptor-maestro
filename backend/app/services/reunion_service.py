@@ -16,6 +16,7 @@ from app.schemas.reunion import EstadoReunion, EstrategiaIA
 from app.schemas.acuerdo import EstadoAcuerdo
 from app.services.ai_handler import ai_handler
 from app.services.matching import fuzzy_matcher
+from app.services.storage_service import storage_service
 
 class ReunionService:
     def __init__(self):
@@ -173,6 +174,12 @@ class ReunionService:
             reunion.estrategia_ia = estrategia.value
             reunion.actualizado_en = datetime.utcnow()
             db.commit()
+
+            # 4. Limpieza automática del almacenamiento temporal tras éxito
+            try:
+                storage_service.limpiar_archivos_reunion(id_reunion)
+            except Exception as e_clean:
+                print(f"[STORAGE-WARN] No se pudieron limpiar temporales de reunion {id_reunion}: {e_clean}")
 
         except Exception as e:
             db.rollback()
