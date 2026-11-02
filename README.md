@@ -31,6 +31,8 @@ Para poner en marcha el proyecto paso a paso, consulta las guías dedicadas:
 | **Base de Datos** | 👉 [**`db/README.md`**](./db/README.md) | **Guía de carga de base de datos:** cómo crear la base de datos `transcriptor_db` y cargar [`db.sql`](./db/db.sql) con pgAdmin 4 o terminal `psql`. |
 | **Arquitectura** | 📄 [**`backend/doc.md`**](./backend/doc.md) | Explicación detallada de la arquitectura por capas (controladores, servicios, modelos y IA). |
 | **Frontend Handoff** | 📄 [**`backend/FRONTEND_HANDOFF.md`**](./backend/FRONTEND_HANDOFF.md) | Especificación técnica de contratos JSON, endpoints y flujos para el equipo de desarrollo Frontend. |
+| **Frontend (Angular)** | 👉 [**`frontend-angular/README.md`**](./frontend-angular/README.md) | Interfaz web Angular 19: subida de audios, minutas, historial, Kanban de acuerdos, equipo y auditoría. |
+| **Frontend (React)** | 👉 [**`frontend/README.md`**](./frontend/README.md) | Misma interfaz en React + Vite (alternativa). |
 
 ---
 
@@ -64,20 +66,70 @@ prototipos/
 
 ---
 
-## ⚡ Inicio Rápido (3 Pasos)
+## ▶️ Cómo arrancar el proyecto (Backend + Frontend)
 
-Si ya tienes las herramientas configuradas:
+Necesitas **2 terminales de PowerShell** abiertas en la carpeta raíz del proyecto (`transcriptor-maestro`).
+La base de datos **no hay que encenderla**: el servicio de PostgreSQL arranca solo con Windows.
 
-1. **Cargar la base de datos:**  
-   Ejecuta [`db/db.sql`](./db/db.sql) en PostgreSQL (revisar [Guía de BD](./db/README.md)).
-2. **Instalar dependencias del backend:**  
+### Terminal 1 — Backend (FastAPI, puerto 8000)
+
+```powershell
+cd backend
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\venv\Scripts\Activate.ps1
+py -m uvicorn app.main:app --reload --port 8000
+```
+
+Si todo está bien verás:
+
+```text
+[DB] Conectado exitosamente a: localhost:5432/transcriptor_db
+INFO:     Application startup complete.
+```
+
+* Swagger (probar la API): [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+* Salud del servicio: [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health)
+
+### Terminal 2 — Frontend Angular (puerto 4200)
+
+```powershell
+cd frontend-angular
+npm start
+```
+
+`npm start` instala las dependencias automáticamente (`npm install`) y luego enciende Angular.
+Abre 👉 [http://localhost:4200](http://localhost:4200)
+
+*(Alternativa React: `cd frontend; npm install; npm run dev` → [http://localhost:5173](http://localhost:5173)).*
+
+### Apagar
+
+En cada terminal presiona `Ctrl + C`.
+
+### Problemas comunes al arrancar
+
+| Error | Causa | Solución |
+| :--- | :--- | :--- |
+| `[WinError 10013] An attempt was made to access a socket...` | El puerto 8000 ya está ocupado (otro backend sigue encendido). | Cierra la otra terminal/proceso, o usa otro puerto: `--port 8001` y cambia `8000` por `8001` en [`frontend-angular/proxy.conf.json`](./frontend-angular/proxy.conf.json). |
+| `La ejecución de scripts está deshabilitada en este sistema` | Política de PowerShell. | Ejecuta `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass` antes de activar el `venv`. |
+| `[DB-FALLBACK] ... Usando SQLite local` | PostgreSQL apagado o credenciales distintas. | Verifica el servicio `postgresql-x64-16` y la `DATABASE_URL` de `backend/.env`. |
+| El front dice **"API desconectada"** | El backend no está encendido. | Arranca primero la Terminal 1. |
+
+---
+
+## 🧰 Instalación por primera vez (solo una vez)
+
+Si clonas el proyecto en un equipo nuevo, antes de arrancarlo:
+
+1. **Base de datos:** instala PostgreSQL (usuario `postgres`, contraseña `felipe`), crea `transcriptor_db` y carga [`db/db.sql`](./db/db.sql) (ver [Guía de BD](./db/README.md)).
+2. **Backend:**
    ```powershell
    cd backend
-   py -m pip install -r requirements.txt
+   py -m venv venv
+   Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+   .\venv\Scripts\Activate.ps1
+   pip install -r requirements.txt
+   Copy-Item .env.example .env   # y ajusta DATABASE_URL y las API keys
+   py scripts/init_db.py         # crea transcriptor_db si no existe
    ```
-3. **Encender la API:**  
-   ```powershell
-   py -m uvicorn app.main:app --reload --port 8000
-   ```
-4. **Probar la API:**  
-   Abre en tu navegador [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs).
+3. **Frontend:** no requiere pasos extra; `npm start` instala todo la primera vez.
