@@ -27,6 +27,11 @@ async def list_responsables(db: Session = Depends(get_db)):
     description="Permite agregar nuevos integrantes y sus alias para que la IA los reconozca automáticamente."
 )
 async def create_responsable(body: ResponsableCreate, db: Session = Depends(get_db)):
+    if body.email and db.query(Responsable).filter(Responsable.email == body.email).first():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Ya existe un responsable registrado con el email '{body.email}'"
+        )
     nuevo = Responsable(
         proyecto_id=body.proyecto_id,
         nombre_completo=body.nombre_completo,
