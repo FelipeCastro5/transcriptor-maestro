@@ -34,7 +34,8 @@ async def upload_audio(
     estrategia: EstrategiaIA = Query(EstrategiaIA.ESTRATEGIA_5_HIBRIDO_MADURO, description="Estrategia del Handler a ejecutar"),
     modelo_whisper: str = Query("medium", description="Modelo Whisper a usar (small, medium, large)"),
     llm_preferido: str = Query("deepseek", description="LLM preferido (deepseek, openai)"),
-    modelo_llm: str = Query("deepseek-chat", description="Modelo de LLM específico (ej. deepseek-chat, gpt-4o-mini)")
+    modelo_llm: str = Query("deepseek-chat", description="Modelo de LLM específico (ej. deepseek-chat, gpt-4o-mini)"),
+    modo_consenso: bool = Query(False, description="Activa el modo de consenso dual (DeepSeek + OpenAI concurrente)")
 ):
     registro = reunion_service.guardar_audio(file)
     id_reunion = registro["id_reunion"]
@@ -46,7 +47,8 @@ async def upload_audio(
             estrategia=estrategia,
             modelo_whisper=modelo_whisper,
             llm_preferido=llm_preferido,
-            modelo_llm=modelo_llm
+            modelo_llm=modelo_llm,
+            modo_consenso=modo_consenso
         )
 
     data = ReunionUploadResponse(
@@ -96,7 +98,8 @@ async def procesar_reunion(
         estrategia=body.estrategia,
         modelo_whisper=modelo_whisper,
         llm_preferido=llm_preferido,
-        modelo_llm=modelo_llm
+        modelo_llm=modelo_llm,
+        modo_consenso=body.modo_consenso
     )
 
     data = ReunionEstadoResponse(

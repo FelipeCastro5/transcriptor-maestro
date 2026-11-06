@@ -17,6 +17,7 @@ from app.schemas.acuerdo import EstadoAcuerdo
 from app.services.ai_handler import ai_handler
 from app.services.matching import fuzzy_matcher
 from app.services.storage_service import storage_service
+from app.services.alert_service import alert_service
 
 class ReunionService:
     def __init__(self):
@@ -90,7 +91,15 @@ class ReunionService:
         finally:
             db.close()
 
-    def procesar_tarea_segundo_plano(self, id_reunion: str, estrategia: EstrategiaIA, modelo_whisper: str = "medium", llm_preferido: str = "deepseek", modelo_llm: str = "deepseek-chat"):
+    def procesar_tarea_segundo_plano(
+        self,
+        id_reunion: str,
+        estrategia: EstrategiaIA,
+        modelo_whisper: str = "medium",
+        llm_preferido: str = "deepseek",
+        modelo_llm: str = "deepseek-chat",
+        modo_consenso: bool = False
+    ):
         db: Session = SessionLocal()
         try:
             reunion = db.query(Reunion).filter(Reunion.id == id_reunion).first()
@@ -98,7 +107,8 @@ class ReunionService:
                 return
 
             reunion.estado_proceso = EstadoReunion.PROCESANDO.value
-            reunion.progreso_estimado = f"Transcribiendo y analizando con Estrategia {estrategia.value} (Whisper {modelo_whisper})..."
+            consenso_txt = " con Consenso Dual" if modo_consenso else ""
+            reunion.progreso_estimado = f"Transcribiendo y analizando con Estrategia {estrategia.value} (Whisper {modelo_whisper}{consenso_txt})..."
             reunion.actualizado_en = datetime.utcnow()
             db.commit()
 
@@ -111,7 +121,8 @@ class ReunionService:
                 modelo_whisper=modelo_whisper,
                 db=db,
                 llm_preferido=llm_preferido,
-                modelo_llm=modelo_llm
+                modelo_llm=modelo_llm,
+                modo_consenso=modo_consenso
             )
 
             catalogo = db.query(Responsable).filter(Responsable.activo == True).all()
@@ -340,5 +351,117 @@ class ReunionService:
             return None
         finally:
             db.close()
+
+    def ejecutar_barrido_acuerdos_periodico(self, db_session: Optional[Session] = None) -> Dict[str, Any]:
+        """
+        Curva de Control de Espacios Iguales (Módulo de Automatización):
+        Ejecuta un barrido periódico sobre la base de datos para:
+        1. Identificar tareas vencidas y transicionar su estado a 'atrasado'.
+        2. Detectar omisiones (acuerdos pendientes no mencionados en múltiples reuniones).
+        3. Emitir alertas automáticas y despachar webhooks.
+        """
+        cerrar_sesion = False
+        db = db_session
+        if db is None:
+            db = SessionLocal()
+            cerrar_sesion = True
+
+        hoy = datetime.utcnow().date()
+        ahora = datetime.utcnow()
+        total_revisados = 0
+        total_atrasados = 0
+        total_omisiones = 0
+        total_alertas = 0
+
+        try:
+            # 1. Obtener acuerdos pendientes
+            acuerdos_pendientes = db.query(Acuerdo).filter(Acuerdo.estado == "pendiente").all()
+            total_revisados = len(acuerdos_pendientes)
+
+            for ac in acuerdos_pendientes:
+                # Comprobar si la fecha límite ya expiró
+                esta_vencido = False
+                dias_retraso = 0
+
+                if ac.fecha_limite and ac.fecha_limite < hoy:
+                    esta_vencido = True
+                    dias_retraso = (hoy - ac.fecha_limite).days
+                elif ac.creado_en and (ahora - ac.creado_en).days > 7 and not ac.fecha_limite:
+                    # Si no tiene fecha explícita pero tiene más de 7 días pendiente
+                    esta_vencido = True
+                    dias_retraso = (ahora - ac.creado_en).days - 7
+
+                if esta_vencido:
+                    ac.estado = "atrasado"
+                    ac.actualizado_en = ahora
+                    total_atrasados += 1
+
+                    # Registrar en historial
+                    hist = HistorialEstado(
+                        acuerdo_id=ac.id,
+                        reunion_origen_id=ac.reunion_id,
+                        estado_anterior="pendiente",
+                        estado_nuevo="atrasado",
+                        evidencia_texto=f"Curva de Espacios Iguales: Detectado atraso de {dias_retraso} días automáticamente."
+                    )
+                    db.add(hist)
+
+                    # Emitir alerta
+                    alert_service.emitir_alerta(
+                        db=db,
+                        tipo_alerta="ATRASO",
+                        nivel_severidad="WARNING",
+                        titulo=f"Compromiso Atrasado: {ac.id}",
+                        mensaje=f"La tarea asignada a {ac.responsable} presenta {dias_retraso} días de retraso: '{ac.tarea_desc[:120]}...'",
+                        acuerdo_id=ac.id,
+                        reunion_id=ac.reunion_id,
+                        disparar_webhook=True
+                    )
+                    total_alertas += 1
+
+            # 2. Detección de Omisiones (Inteligencia #3)
+            # Acuerdos de reuniones anteriores que no han cambiado en más de 2 reuniones posteriores
+            reuniones_completadas = db.query(Reunion).filter(Reunion.estado_proceso == "COMPLETADO").order_by(Reunion.creado_en.asc()).all()
+            if len(reuniones_completadas) >= 3:
+                ultimas_reuniones_ids = [r.id for r in reuniones_completadas[-2:]]
+                for ac in acuerdos_pendientes:
+                    if ac.reunion_id not in ultimas_reuniones_ids and ac.estado in ["pendiente", "atrasado"]:
+                        # Tarea antigua no mencionada en las últimas reuniones
+                        total_omisiones += 1
+                        alert_service.emitir_alerta(
+                            db=db,
+                            tipo_alerta="OMISION",
+                            nivel_severidad="CRITICAL",
+                            titulo=f"Posible Omisión de Compromiso: {ac.id}",
+                            mensaje=f"El acuerdo asignado a {ac.responsable} ('{ac.tarea_desc[:100]}') no fue mencionado ni actualizado en las últimas reuniones.",
+                            acuerdo_id=ac.id,
+                            reunion_id=ac.reunion_id,
+                            disparar_webhook=True
+                        )
+                        total_alertas += 1
+
+            db.commit()
+            print(f"[CURVA-ESPACIOS-IGUALES] Barrido ejecutado: {total_revisados} revisados, {total_atrasados} atrasados, {total_omisiones} omisiones, {total_alertas} alertas emitidas.")
+
+            return {
+                "acuerdos_revisados": total_revisados,
+                "acuerdos_atrasados": total_atrasados,
+                "omisiones_detectadas": total_omisiones,
+                "alertas_generadas": total_alertas,
+                "mensaje": f"Barrido de Curva de Espacios Iguales completado exitosamente."
+            }
+        except Exception as e:
+            db.rollback()
+            print(f"[CURVA-ESPACIOS-IGUALES-ERROR] Error durante barrido periódico: {e}")
+            return {
+                "acuerdos_revisados": total_revisados,
+                "acuerdos_atrasados": 0,
+                "omisiones_detectadas": 0,
+                "alertas_generadas": 0,
+                "mensaje": f"Error ejecutando barrido: {str(e)}"
+            }
+        finally:
+            if cerrar_sesion:
+                db.close()
 
 reunion_service = ReunionService()

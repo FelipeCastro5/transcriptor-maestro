@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
@@ -6,6 +7,23 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.api.v1.router import api_router
 from app.schemas.response import ResponseDto, ResponseUtil
+from app.db.session import init_db
+from app.core.scheduler import system_scheduler
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Inicio de la aplicación: inicializar base de datos y arrancar Curva de Espacios Iguales
+    try:
+        init_db()
+        system_scheduler.start()
+    except Exception as e:
+        print(f"[MAIN-STARTUP-ERROR] {e}")
+    yield
+    # Apagado ordenado
+    try:
+        system_scheduler.shutdown()
+    except Exception as e:
+        print(f"[MAIN-SHUTDOWN-ERROR] {e}")
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -13,7 +31,8 @@ app = FastAPI(
     description="Backend API para el Sistema Inteligente de Seguimiento de Acuerdos y Control de Proyectos.",
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
+    lifespan=lifespan
 )
 
 # Configuración CORS para conexión con Frontend (React/Vue/Next/Vite)

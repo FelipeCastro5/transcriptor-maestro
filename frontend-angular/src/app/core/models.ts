@@ -119,4 +119,94 @@ export interface ConfigIA {
   modelo_whisper: string;
   llm_preferido: string;
   modelo_llm: string;
+  modo_consenso?: boolean;
 }
+
+// ============================================================================
+// CONTRATOS FASE 1 & FASE 2: ALERTAS, MLOPS (WER, DRIFT) Y PROMPT REGISTRY
+// ============================================================================
+
+export interface AlertaSistema {
+  id: string;
+  tipo_alerta: string;
+  severidad: string;
+  acuerdo_id: string | null;
+  responsable_id: string | null;
+  mensaje: string;
+  leida: boolean;
+  despachada_webhook: boolean;
+  creado_en: string;
+}
+
+export interface SchedulerStatus {
+  activo: boolean;
+  proxima_ejecucion: string | null;
+  intervalo_minutos: number;
+  total_alertas_activas: number;
+  modo: string;
+}
+
+export interface BarridoResultado {
+  acuerdos_revisados: number;
+  acuerdos_atrasados: number;
+  omisiones_detectadas: number;
+  alertas_generadas: number;
+  mensaje: string;
+  timestamp: string;
+}
+
+export interface AlineacionToken {
+  ref: string | null;
+  hyp: string | null;
+  op: 'MATCH' | 'SUBSTITUTION' | 'INSERTION' | 'DELETION';
+  peso: number;
+}
+
+export interface CalibrarWER {
+  id: string;
+  reunion_id: string | null;
+  modelo_evaluado: string;
+  total_palabras_gt: number;
+  total_palabras_hyp: number;
+  sustituciones: number;
+  eliminaciones: number;
+  inserciones: number;
+  aciertos: number;
+  wer: number;
+  wer_porcentaje: number;
+  wer_ponderado: number;
+  wer_ponderado_porcentaje: number;
+  precision_palabra: number;
+  precision_palabra_porcentaje: number;
+  longitud_relativa: number;
+  estado_calidad: string;
+  cumple_meta_sprint: boolean;
+  alineacion: AlineacionToken[];
+  creado_en: string;
+}
+
+export interface DataDrift {
+  total_palabras_evaluadas: number;
+  palabras_unicas_evaluadas: number;
+  tamano_vocabulario_base: number;
+  palabras_oov_detectadas: string[];
+  total_palabras_oov: number;
+  ratio_oov: number;
+  ratio_oov_porcentaje: number;
+  estado_drift: string;
+  alerta_drift: boolean;
+  recomendacion: string;
+}
+
+export interface PromptVersion {
+  id: string;
+  version: string;
+  nombre: string;
+  descripcion: string;
+  hash_md5: string;
+  modelos_compatibles: string[];
+  es_activo: boolean;
+  prompt_sistema: string;
+  creado_en: string;
+}
+

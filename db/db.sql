@@ -86,8 +86,53 @@ CREATE TABLE IF NOT EXISTS auditoria_ia_logs (
     creado_en TIMESTAMP DEFAULT (NOW() AT TIME ZONE 'utc')
 );
 
+-- 7. Tabla Alertas del Sistema (Curva de Espacios Iguales y Supervisión)
+CREATE TABLE IF NOT EXISTS alertas_sistema (
+    id VARCHAR(36) PRIMARY KEY DEFAULT uuid_generate_v4()::text,
+    proyecto_id VARCHAR(36) REFERENCES proyectos(id) ON DELETE SET NULL,
+    reunion_id VARCHAR(36) REFERENCES reuniones(id) ON DELETE SET NULL,
+    acuerdo_id VARCHAR(36) REFERENCES acuerdos(id) ON DELETE SET NULL,
+    tipo_alerta VARCHAR(50) NOT NULL,
+    nivel_severidad VARCHAR(20) NOT NULL DEFAULT 'WARNING',
+    titulo VARCHAR(150) NOT NULL,
+    mensaje TEXT NOT NULL,
+    leida BOOLEAN NOT NULL DEFAULT FALSE,
+    webhook_enviado BOOLEAN NOT NULL DEFAULT FALSE,
+    creada_en TIMESTAMP DEFAULT (NOW() AT TIME ZONE 'utc'),
+    actualizada_en TIMESTAMP DEFAULT (NOW() AT TIME ZONE 'utc')
+);
+
 -- Índices de aceleración para consultas frecuentes
 CREATE INDEX IF NOT EXISTS idx_acuerdos_reunion ON acuerdos(reunion_id);
 CREATE INDEX IF NOT EXISTS idx_acuerdos_responsable ON acuerdos(responsable_id);
 CREATE INDEX IF NOT EXISTS idx_acuerdos_estado ON acuerdos(estado);
 CREATE INDEX IF NOT EXISTS idx_reuniones_estado ON reuniones(estado_proceso);
+CREATE INDEX IF NOT EXISTS idx_alertas_leida ON alertas_sistema(leida);
+CREATE INDEX IF NOT EXISTS idx_alertas_tipo ON alertas_sistema(tipo_alerta);
+
+-- ============================================================================
+-- 8. TABLA: EVALUACIONES_CALIBRACION (Telemetría MLOps: WER, WER_w, Data Drift)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS evaluaciones_calibracion (
+    id VARCHAR(36) PRIMARY KEY,
+    reunion_id VARCHAR(36) REFERENCES reuniones(id) ON DELETE SET NULL,
+    modelo_evaluado VARCHAR(50) DEFAULT 'whisper-medium',
+    total_palabras_gt INTEGER NOT NULL,
+    total_palabras_hyp INTEGER NOT NULL,
+    sustituciones INTEGER DEFAULT 0,
+    eliminaciones INTEGER DEFAULT 0,
+    inserciones INTEGER DEFAULT 0,
+    aciertos INTEGER DEFAULT 0,
+    wer DOUBLE PRECISION NOT NULL,
+    wer_ponderado DOUBLE PRECISION NOT NULL,
+    precision_palabra DOUBLE PRECISION NOT NULL,
+    longitud_relativa DOUBLE PRECISION NOT NULL,
+    data_drift_ratio DOUBLE PRECISION DEFAULT 0.0,
+    estado_calidad VARCHAR(50) DEFAULT 'OPTIMO',
+    detalles_alineacion JSONB,
+    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_eval_reunion ON evaluaciones_calibracion(reunion_id);
+CREATE INDEX IF NOT EXISTS idx_eval_creado ON evaluaciones_calibracion(creado_en);
+

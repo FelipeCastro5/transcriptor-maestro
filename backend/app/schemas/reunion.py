@@ -60,3 +60,7 @@ class ProcesarReunionRequest(BaseModel):
         default=EstrategiaIA.ESTRATEGIA_5_HIBRIDO_MADURO,
         description="Estrategia del Handler Dinámico a utilizar (1 a 5)"
     )
+    modo_consenso: bool = Field(
+        default=False,
+        description="Activa el modo de consenso concurrente dual (DeepSeek + OpenAI) con cálculo de discrepancia entre modelos"
+    )

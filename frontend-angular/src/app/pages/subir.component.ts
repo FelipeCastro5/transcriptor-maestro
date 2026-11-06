@@ -74,6 +74,15 @@ interface Proceso {
           <label>Modelo LLM
             <input [(ngModel)]="config.modelo_llm" />
           </label>
+          <div style="margin-top: 14px; padding: 12px; background: #f8fafc; border: 1px solid var(--border); border-radius: 8px;">
+            <label style="display: flex; flex-direction: row; align-items: center; gap: 8px; margin: 0; cursor: pointer;">
+              <input type="checkbox" [(ngModel)]="config.modo_consenso" style="width: auto; cursor: pointer;" />
+              <span><strong>Modo Consenso Dual (DeepSeek + OpenAI)</strong></span>
+            </label>
+            <p class="hint" style="margin-top: 6px;">
+              Invocación concurrente en paralelo con cálculo de discrepancia entre modelos (&le;20%) y verificación cruzada en tiempo real.
+            </p>
+          </div>
           <p class="hint">Las estrategias 2–5 usan las API keys de <code>backend/.env</code>. Sin keys, usa la estrategia 1.</p>
         </div>
       </section>
@@ -93,7 +102,7 @@ export class SubirComponent implements OnDestroy {
     { value: 2, label: '2 · Chunking 30s Hugging Face' },
     { value: 1, label: '1 · Reglas offline (sin LLM)' },
   ];
-  config: ConfigIA = { estrategia: 5, modelo_whisper: 'medium', llm_preferido: 'deepseek', modelo_llm: 'deepseek-chat' };
+  config: ConfigIA = { estrategia: 5, modelo_whisper: 'medium', llm_preferido: 'deepseek', modelo_llm: 'deepseek-chat', modo_consenso: false };
 
   file = signal<File | null>(null);
   drag = signal(false);

@@ -12,6 +12,7 @@ from app.core.config import settings
 from app.schemas.reunion import EstrategiaIA, EstadoReunion
 from app.schemas.acuerdo import EstadoAcuerdo
 from app.services.vacas import vacas_manager
+from app.core.prompt_registry import prompt_registry
 
 class AIHandler:
     """
@@ -135,52 +136,37 @@ class AIHandler:
         reunion_id: str,
         db: Optional[Session] = None,
         llm_preferido: str = "deepseek",
-        modelo_llm: str = "deepseek-chat"
+        modelo_llm: str = "deepseek-chat",
+        modo_consenso: bool = False
     ) -> List[Dict[str, Any]]:
         """
         Extracción con LLM integrando contingencia VACAS y auditoría del Perceptrón.
         """
+        # Selección del prompt versionado mediante Prompt Registry
         if estrategia == EstrategiaIA.ESTRATEGIA_4_PROMPT_AVANZADO:
-            prompt = f"""Eres un asistente especializado en extraer ACUERDOS, DECISIONES y COMPROMISOS de conversaciones informales.
-Analiza la siguiente transcripción y extrae TODOS los momentos donde:
-1. Alguien asigna una tarea a alguien.
-2. Alguien se compromete a hacer algo ("yo me encargo", "lo haré").
-3. Se toma una decisión o se acuerda una entrega.
-
-Para cada acuerdo extrae:
-- tarea_desc: descripción concisa y clara de la tarea
-- responsable: persona responsable (infiere por el contexto)
-- fecha_compromiso: fecha o plazo límite si se menciona, de lo contrario null
-- fragmento_original: la cita textual exacta del audio
-
-TRANSCRIPCIÓN:
-{texto}
-
-Responde ÚNICAMENTE con un JSON válido que sea una lista de objetos:
-[
-  {{"tarea_desc": "...", "responsable": "...", "fecha_compromiso": "...", "fragmento_original": "..."}}
-]"""
+            reg_prompt = prompt_registry.obtener_prompt_por_id("PRM-V2-INFORMAL")
+        elif estrategia == EstrategiaIA.ESTRATEGIA_5_HIBRIDO_MADURO:
+            reg_prompt = prompt_registry.obtener_prompt_por_id("PRM-V3-HIBRIDO")
         else:
-            prompt = f"""Analiza la siguiente transcripción y extrae todos los acuerdos, tareas y compromisos:
+            reg_prompt = prompt_registry.obtener_prompt_activo()
 
-TRANSCRIPCIÓN:
-{texto}
+        if reg_prompt:
+            prompt = reg_prompt.template_usuario.format(texto=texto)
+            system_prompt = reg_prompt.prompt_sistema
+        else:
+            prompt = f"Analiza la siguiente transcripción y extrae acuerdos en JSON:\n{texto}"
+            system_prompt = "Eres un asistente que extrae acuerdos en formato JSON estricto."
 
-Responde SOLO con una lista JSON de objetos con los campos:
-- tarea_desc: qué hay que hacer
-- responsable: quién debe hacerlo
-- fecha_compromiso: fecha o null
-- fragmento_original: frase exacta donde se pactó"""
-
-        # Invocación con conmutación automática de contingencia VACAS
+        # Invocación con conmutación automática de contingencia VACAS y Soporte de Modo Consenso Dual
         respuesta_cruda, proveedor, conmutacion, latencia = vacas_manager.ejecutar_con_conmutacion(
             prompt=prompt,
-            system_prompt="Eres un asistente que extrae acuerdos en formato JSON estricto.",
+            system_prompt=system_prompt,
             reunion_id=reunion_id,
             etapa="LLM_EXTRACCION",
             db=db,
             llm_preferido=llm_preferido,
-            modelo_llm=modelo_llm
+            modelo_llm=modelo_llm,
+            modo_consenso=modo_consenso
         )
 
         if respuesta_cruda:
@@ -281,13 +267,14 @@ Responde únicamente con el párrafo del resumen ejecutivo."""
         modelo_whisper: str = "medium",
         db: Optional[Session] = None,
         llm_preferido: str = "deepseek",
-        modelo_llm: str = "deepseek-chat"
+        modelo_llm: str = "deepseek-chat",
+        modo_consenso: bool = False
     ) -> Dict[str, Any]:
         """
         Ejecuta el ciclo de vida completo de análisis de la reunión.
         """
         inicio = time.time()
-        print(f"[AIHandler] Procesando reunion {id_reunion} con Estrategia {estrategia.value} y Whisper {modelo_whisper}")
+        print(f"[AIHandler] Procesando reunion {id_reunion} con Estrategia {estrategia.value}, Whisper {modelo_whisper} (Consenso Dual={modo_consenso})")
 
         # 1. Transcripción (con Chunking de 30s en estrategias 2 y 5)
         usar_chunking = estrategia in [EstrategiaIA.ESTRATEGIA_2_HUGGINGFACE_OPEN, EstrategiaIA.ESTRATEGIA_5_HIBRIDO_MADURO]
@@ -303,7 +290,8 @@ Responde únicamente con el párrafo del resumen ejecutivo."""
             acuerdos_crudos = self._extraer_reglas_offline(transcripcion)
         else:
             acuerdos_crudos = self._extraer_acuerdos_llm(
-                transcripcion, estrategia, id_reunion, db, llm_preferido=llm_preferido, modelo_llm=modelo_llm
+                transcripcion, estrategia, id_reunion, db,
+                llm_preferido=llm_preferido, modelo_llm=modelo_llm, modo_consenso=modo_consenso
             )
 
         # Dar formato estructurado a cada acuerdo

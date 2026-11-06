@@ -4,6 +4,8 @@ from app.db.models.reunion import Reunion
 from app.db.models.acuerdo import Acuerdo
 from app.db.models.historial import HistorialEstado
 from app.db.models.auditoria import AuditoriaIALog
+from app.db.models.alerta import AlertaSistema
+from app.db.models.evaluacion import EvaluacionCalibracion
 
 __all__ = [
     "Proyecto",
@@ -11,5 +13,7 @@ __all__ = [
     "Reunion",
     "Acuerdo",
     "HistorialEstado",
-    "AuditoriaIALog"
+    "AuditoriaIALog",
+    "AlertaSistema",
+    "EvaluacionCalibracion"
 ]

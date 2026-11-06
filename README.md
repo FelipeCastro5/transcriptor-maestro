@@ -27,6 +27,7 @@ Para poner en marcha el proyecto paso a paso, consulta las guías dedicadas:
 
 | Componente | Documento | Descripción |
 | :--- | :--- | :--- |
+| **Cierre de Promesas MLOps** | 🏆 [**`CAMBIOS_PLAN_CIERRE_PROMESAS.md`**](./CAMBIOS_PLAN_CIERRE_PROMESAS.md) | **Informe de cumplimiento 100%:** Curva de Espacios Iguales, Alertas, Calibrador WER, Data Drift, Prompt Registry y Modo Consenso VACAS. |
 | **Backend** | 👉 [**`backend/GUIA_INICIO_BACKEND.md`**](./backend/GUIA_INICIO_BACKEND.md) | **Paso a paso para principiantes:** instalación de dependencias, entorno virtual, encendido del servidor con Uvicorn y prueba de endpoints en Swagger. |
 | **Base de Datos** | 👉 [**`db/README.md`**](./db/README.md) | **Guía de carga de base de datos:** cómo crear la base de datos `transcriptor_db` y cargar [`db.sql`](./db/db.sql) con pgAdmin 4 o terminal `psql`. |
 | **Arquitectura** | 📄 [**`backend/doc.md`**](./backend/doc.md) | Explicación detallada de la arquitectura por capas (controladores, servicios, modelos y IA). |

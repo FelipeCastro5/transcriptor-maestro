@@ -5,7 +5,8 @@ import { environment } from '../../environments/environment';
 import {
   Acuerdo, ConfigIA, EstadoAcuerdo, EstadoAuditoria, EstadoCache, LogIA, Metricas,
   ReunionDetalle, ReunionEstado, ReunionResumen, ReunionUpload, Responsable,
-  ResponsableCreate, ResponseDto,
+  ResponsableCreate, ResponseDto, AlertaSistema, SchedulerStatus, BarridoResultado,
+  CalibrarWER, DataDrift, PromptVersion
 } from './models';
 
 @Injectable({ providedIn: 'root' })
@@ -103,5 +104,44 @@ export class ApiService {
 
   limpiarCache() {
     return this.send<Record<string, unknown>>('post', `${this.api}/sistema/limpiar-cache`, null);
+  }
+
+  // Alertas y Scheduler (Fase 1: Curva de Espacios Iguales)
+  listarAlertas(soloNoLeidas: boolean = false) {
+    const params = new HttpParams().set('solo_no_leidas', soloNoLeidas);
+    return this.get<AlertaSistema[]>(`${this.api}/sistema/alertas`, params);
+  }
+
+  marcarAlertaLeida(idAlerta: string) {
+    return this.send<AlertaSistema>('post', `${this.api}/sistema/alertas/${idAlerta}/marcar-leida`, {});
+  }
+
+  estadoScheduler() {
+    return this.get<SchedulerStatus>(`${this.api}/sistema/scheduler/estado`);
+  }
+
+  ejecutarBarridoScheduler() {
+    return this.send<BarridoResultado>('post', `${this.api}/sistema/scheduler/ejecutar`, {});
+  }
+
+  // MLOps: Calibración WER, Data Drift y Prompt Registry (Fase 2)
+  calibrarWER(body: { texto_referencia: string; texto_hipotesis?: string; reunion_id?: string; modelo_evaluado?: string }) {
+    return this.send<CalibrarWER>('post', `${this.api}/auditoria/calibrar-wer`, body);
+  }
+
+  listarCalibraciones() {
+    return this.get<CalibrarWER[]>(`${this.api}/auditoria/calibraciones`);
+  }
+
+  analizarDataDrift(body: { texto?: string; reunion_id?: string; vocabulario_adicional?: string[] }) {
+    return this.send<DataDrift>('post', `${this.api}/auditoria/data-drift`, body);
+  }
+
+  listarPrompts() {
+    return this.get<PromptVersion[]>(`${this.api}/auditoria/prompts-historial`);
+  }
+
+  activarPrompt(versionId: string) {
+    return this.send<PromptVersion>('post', `${this.api}/auditoria/prompts-activar`, { version_id: versionId });
   }
 }
