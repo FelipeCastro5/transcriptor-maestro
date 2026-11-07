@@ -197,3 +197,4 @@ Output location: dist/frontend-angular (0 errores)
    - Ir a la sub-pestaña **"Prompt Registry"**: alternar la versión activa haciendo clic en *"Activar en Caliente"*.
 4. **Consenso Dual VACAS:**
    - Ir a la pestaña **"Subir reunión"**, marcar la casilla *"Modo Consenso Dual"* y procesar una grabación: la auditoría registrará la ejecución paralela y el cálculo de discrepancia léxica.
+
