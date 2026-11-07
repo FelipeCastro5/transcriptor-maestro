@@ -48,7 +48,7 @@ class VACASManager:
             "max_tokens": 2000
         }
 
-        with httpx.Client(timeout=3.0) as client:
+        with httpx.Client(timeout=25.0) as client:
             res = client.post("https://api.deepseek.com/v1/chat/completions", headers=headers, json=payload)
             if res.status_code == 200:
                 data = res.json()
@@ -74,7 +74,7 @@ class VACASManager:
             "temperature": 0.2
         }
 
-        with httpx.Client(timeout=3.0) as client:
+        with httpx.Client(timeout=25.0) as client:
             res = client.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
             if res.status_code == 200:
                 data = res.json()
@@ -160,13 +160,13 @@ class VACASManager:
                 f_sec = executor.submit(func_secundaria)
 
                 try:
-                    res_primaria = f_prim.result(timeout=3.5)
+                    res_primaria = f_prim.result(timeout=25.0)
                 except Exception as e:
                     print(f"[VACAS-CONSENSO] Fallo en primaria: {e}")
                     res_primaria = None
 
                 try:
-                    res_secundaria = f_sec.result(timeout=3.5)
+                    res_secundaria = f_sec.result(timeout=25.0)
                 except Exception as e:
                     print(f"[VACAS-CONSENSO] Fallo en réplica: {e}")
                     res_secundaria = None

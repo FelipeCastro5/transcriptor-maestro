@@ -112,22 +112,28 @@ Responde ÚNICAMENTE con un JSON válido que sea una lista de objetos:
             id="PRM-V3-HIBRIDO",
             version="3.0.0",
             nombre="Prompt Híbrido Maduro Multi-Dominio (Sprint 3 / VACAS)",
-            descripcion="Modelo avanzado con inferencia de compromisos implícitos, detección de bloqueantes y dependencias entre responsables.",
-            prompt_sistema="Eres un motor cognitivo de seguimiento de acuerdos de alta fidelidad con verificación cruzada.",
-            template_usuario="""Analiza rigurosamente la transcripción suministrada identificando compromisos explícitos e implícitos.
-Mapea dependencias entre tareas y asigna fechas normalizadas.
-Si hay ambigüedad en el responsable, asigna al líder de área o marca como 'Equipo General'.
+            descripcion="Modelo avanzado con inferencia de compromisos implícitos, decisiones técnicas, asignaciones de liderazgo y dependencias.",
+            prompt_sistema="Eres un motor cognitivo de seguimiento de acuerdos de alta fidelidad con verificación cruzada. Tu misión es extraer con precisión todas las tareas, decisiones técnicas, asignaciones y compromisos acordados en la conversación, sin importar si el lenguaje es formal o informal.",
+            template_usuario="""Analiza rigurosamente la transcripción suministrada identificando todos los compromisos, tareas y decisiones clave.
+Debes extraer:
+1. Compromisos explícitos e implícitos (ej: "yo me encargo", "vamos a hacer esto").
+2. Decisiones técnicas y de diseño de producto acordadas (ej: cambios de hardware, arquitectura, interfaz).
+3. Asignaciones de liderazgo o tareas encomendadas a miembros del equipo.
+4. Tareas u operaciones inmediatas acordadas (ej: reclutamiento, reuniones, entregas).
+
+Si el plazo no se menciona explícitamente, coloca null en fecha_compromiso.
+Si hay ambigüedad en el responsable, asigna la persona que toma o recibe la orden, o marca como 'Equipo General'.
 
 TRANSCRIPCIÓN:
 {texto}
 
-Estructura de salida JSON requerida:
+Responde ÚNICAMENTE con una lista JSON válida:
 [
   {{
-    "tarea_desc": "descripción de la tarea",
-    "responsable": "nombre del responsable",
-    "fecha_compromiso": "fecha estimada o null",
-    "fragmento_original": "evidencia textual exacta"
+    "tarea_desc": "descripción concisa y clara de la tarea o decisión",
+    "responsable": "nombre de la persona responsable",
+    "fecha_compromiso": "fecha o null",
+    "fragmento_original": "evidencia textual exacta de la transcripción"
   }}
 ]""",
             modelos_compatibles=["deepseek-chat", "gpt-4o-mini"],

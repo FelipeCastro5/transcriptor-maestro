@@ -45,10 +45,23 @@ class AIHandler:
                 return f.read()
 
         try:
+            # Asegurar que ffmpeg esté accesible en PATH para decodificar MP3/WAV/M4A
+            try:
+                import imageio_ffmpeg
+                bin_dir = os.path.dirname(imageio_ffmpeg.get_ffmpeg_exe())
+                ffmpeg_exe = os.path.join(bin_dir, "ffmpeg.exe")
+                if not os.path.exists(ffmpeg_exe):
+                    import shutil
+                    shutil.copyfile(imageio_ffmpeg.get_ffmpeg_exe(), ffmpeg_exe)
+                if bin_dir not in os.environ.get("PATH", ""):
+                    os.environ["PATH"] = bin_dir + os.pathsep + os.environ.get("PATH", "")
+            except Exception as e_ff:
+                print(f"[ASR-FFMPEG] Aviso configurando ffmpeg: {e_ff}")
+
             from transformers import pipeline
             import torch
 
-            print("[ASR] Cargando pipeline Whisper local...")
+            print(f"[ASR] Cargando pipeline Whisper local (openai/whisper-{modelo_whisper})...")
             device = "cuda" if torch.cuda.is_available() else "cpu"
             transcriber = pipeline(
                 "automatic-speech-recognition",
@@ -69,17 +82,16 @@ class AIHandler:
             else:
                 resultado = transcriber(ruta_audio, return_timestamps=False, generate_kwargs=kwargs)
 
-            return resultado.get("text", "").strip()
+            texto_transcrito = resultado.get("text", "").strip()
+            if texto_transcrito:
+                print(f"[ASR] Transcripcion real exitosa ({len(texto_transcrito)} caracteres generados)")
+                return texto_transcrito
+            else:
+                raise ValueError("Whisper devolvio texto vacio")
 
         except Exception as e:
-            print(f"[ASR-FALLBACK] Modelo local no disponible o entorno de pruebas ({str(e)}).")
-            return (
-                "Buenas tardes a todos. Iniciamos la sesión de seguimiento de proyecto. "
-                "Juan Pérez debe entregar el informe de métricas de rendimiento este viernes 20 de octubre. "
-                "Por otro lado, María Gómez yo me encargo de diseñar los mockups de la interfaz para el próximo lunes. "
-                "Carlos acordó revisar los endpoints del backend con el equipo técnico mañana a primera hora. "
-                "Con esto cerramos los pendientes clave del sprint."
-            )
+            print(f"[ASR-ERROR] Error transcribiendo audio real: {e}")
+            raise RuntimeError(f"Fallo en motor de transcripcion Whisper: {str(e)}")
 
     # =========================================================================
     # 2. ESTRATEGIAS DE EXTRACCIÓN (Texto -> Acuerdos y Tareas)
@@ -119,15 +131,19 @@ class AIHandler:
         return acuerdos
 
     def _limpiar_bloque_json(self, texto: str) -> str:
-        """Remueve delimitadores Markdown ```json ... ```"""
+        """Remueve delimitadores Markdown y texto periférico para extraer el bloque JSON."""
         texto = texto.strip()
-        if texto.startswith("```json"):
-            texto = texto[7:]
-        elif texto.startswith("```"):
-            texto = texto[3:]
-        if texto.endswith("```"):
-            texto = texto[:-3]
-        return texto.strip()
+        if "```" in texto:
+            match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', texto)
+            if match:
+                return match.group(1).strip()
+        match_arr = re.search(r'(\[[\s\S]*\])', texto)
+        if match_arr:
+            return match_arr.group(1).strip()
+        match_obj = re.search(r'(\{[\s\S]*\})', texto)
+        if match_obj:
+            return match_obj.group(1).strip()
+        return texto
 
     def _extraer_acuerdos_llm(
         self,
