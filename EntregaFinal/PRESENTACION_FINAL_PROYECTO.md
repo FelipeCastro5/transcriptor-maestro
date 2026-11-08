@@ -1,3 +1,112 @@
+# 🤖 PROMPT MAESTRO PARA IA GENERADORA DE PRESENTACIONES (Gamma, Tome, SlidesAI, ChatGPT)
+
+> **Instrucciones de uso:** Copia y pega el bloque delimitado a continuación en tu herramienta de generación de diapositivas con IA favorita (por ejemplo, **Gamma.app**, **Tome.app**, **Beautiful.ai**, o en **ChatGPT Plus / Claude** solicitando generar el código VBA / `python-pptx` para PowerPoint).
+
+```markdown
+Actúa como un Diseñador Senior de Presentaciones Ejecutivas y Especialista en Inteligencia Artificial / MLOps.
+Tu objetivo es generar una presentación de diapositivas de alto impacto visual, rigor técnico y nivel profesional para la SUSTENTACIÓN FINAL de un proyecto de ingeniería en la Universidad ECCI (Asignatura: Electiva II - Sistemas Inteligentes / MLOps).
+
+### DIRECTRICES DE DISEÑO Y ESTILO:
+1. Estilo Visual: Minimalista, moderno y tecnológico. Paleta corporativa de alta ingeniería: fondo oscuro (#0B0F19 o gris pizarra profundo), acentos en azul eléctrico (#2563EB), cian (#06B6D4) y verde esmeralda (#10B981) para métricas de éxito.
+2. Densidad de Contenido: No coloques muros de texto planos. Utiliza tarjetas de componentes (cards), tablas comparativas lado a lado, píldoras de estado (badges), fórmulas matemáticas destacadas y diagramas de flujo conceptuales.
+3. Notas del Orador: Cada diapositiva DEBE incluir sus respectivas "Notas del Expositor" (Speaker Notes) con el guion exacto sugerido para la defensa oral frente al jurado.
+4. Total de Diapositivas: 10 diapositivas principales de exposición + 1 diapositiva anexa de banco de defensa ante preguntas técnicas.
+
+---
+
+### ESTRUCTURA DETALLADA DIAPOSITIVA POR DIAPOSITIVA:
+
+#### DIAPOSITIVA 1: PORTADA INSTITUCIONAL
+- Título Principal: Transcriptor Maestro
+- Subtítulo: Sistema Inteligente de Seguimiento de Acuerdos y Control de Proyectos
+- Tagline: "Cerrando la brecha entre la informalidad de las conversaciones sincrónicas y la rigurosidad de los sistemas de gestión de proyectos mediante ASR y MLOps Resiliente".
+- Metadatos: Universidad ECCI | Facultad de Ingeniería | Electiva II: Sistemas Inteligentes / MLOps | Docente: Ing. Andrés Felipe Duque Montenegro | Expositores: Bryan Alexander Betancourt Rojas, Daniel Felipe Castro Lizarazo, Alejandro Martínez López | Noviembre 2026.
+- Elemento visual: Diagrama conceptual: Ondas sonoras de audio -> Red neuronal de extracción -> Tablero de tareas formalizado con badges de responsables.
+
+#### DIAPOSITIVA 2: EL PROBLEMA REAL Y LA JUSTIFICACIÓN
+- Diagnóstico: Entre el 30% y el 50% de los compromisos verbales pactados en reuniones se pierden por falta de registro o ambigüedad.
+- Las 3 Patologías Críticas:
+  1. Informalidad y Dialecto Coloquial: Expresiones colombianas ("hacer la vuelta", "yo me encargo", "pilas con eso") ignoradas por el software tradicional.
+  2. Sesgo Humano: Minutas manuales incompletas y dependientes de la memoria del redactor.
+  3. Desconexión Temporal: Compromisos de reuniones pasadas caen en el olvido sin seguimiento automatizado.
+- La Solución: Pipeline desacoplado que transcribe con Whisper local, interpreta dialecto con DeepSeek/OpenAI, audita con El Perceptrón y controla moras con la Curva de Espacios Iguales.
+
+#### DIAPOSITIVA 3: EL DATASET DE AUDIO (CONJUNTO DE DATOS)
+- Diferenciación Conceptual Exigida por el Docente:
+  - Base de Datos Relacional: PostgreSQL (persistencia operativa de usuarios, minutas y logs).
+  - Dataset de Machine Learning: Conjunto estructurado de audios WAV/MP3 a 16 kHz mono con transcripciones patrón de oro (Ground Truth) y etiquetado de tareas.
+- Ficha Técnica del Dataset:
+  - Frecuencia de Muestreo: 16.000 Hz, 16-bit PCM, canal mono.
+  - Formato y SNR: MP3/WAV, relación señal-a-ruido > 18 dB.
+  - Chunking Temporal: Segmentación deslizante de 30 segundos con solapamiento (stride) de 5 segundos para eliminar desbordamientos de memoria (OOM).
+
+#### DIAPOSITIVA 4: ARQUITECTURA GENERAL Y PIPELINE END-TO-END
+- Diagrama de Flujo en 4 Fases:
+  1. Audio Ingestion: Carga en Angular 19 -> Backend FastAPI -> Normalización de señal.
+  2. ASR Engine: Whisper local (Small / Medium / Large) decodificando audio a texto en español.
+  3. Cognitive Processing: Sistema Gemelo VACAS orquestando DeepSeek y OpenAI con Prompt Híbrido versionado.
+  4. Normalization & Persistence: Fuzzy Matching (Levenshtein) para asociar apodos a responsables corporativos -> Base de datos PostgreSQL.
+
+#### DIAPOSITIVA 5: ESTRATEGIA DE MLOPS Y RESILIENCIA (SISTEMA GEMELO VACAS)
+- Alta Disponibilidad ante Fallos de LLM:
+  - VACA Primaria: DeepSeek API (deepseek-chat) para procesamiento de alta fidelidad y bajo costo.
+  - VACA Réplica: OpenAI API (gpt-4o-mini) con conmutación en caliente (Hot-Failover < 1.5s) ante caídas de la primaria.
+  - VACA de Emergencia: Motor determinista de Reglas Lingüísticas Offline (100% libre de internet).
+- Modo Consenso Dual: Ejecución paralela concurrente (ThreadPoolExecutor) evaluando discrepancia léxica entre ambos modelos.
+- Auditoría con El Perceptrón: Clasificación automática de cada ejecución en 4 Niveles de Error según latencia, fallo y conmutación.
+
+#### DIAPOSITIVA 6: AUTOMATIZACIÓN DE PROYECTOS: CURVA DE ESPACIOS IGUALES
+- Fundamento: Control de gestión periódico basado en el principio industrial de "Espacios Iguales".
+- Mecanismo en Código: Daemon APScheduler que ejecuta barridos automáticos cada N horas.
+- Detección de Patologías Operativas:
+  1. Estado MORA (Atrasos): Tareas cuya fecha límite venció sin marcarse completadas.
+  2. Estado OMISIÓN SISTEMÁTICA: Tareas que llevan 2 o más reuniones consecutivas del mismo proyecto sin ser mencionadas ni cerradas.
+- Visualización: Campana interactiva en el Frontend con badges de alerta y trigger manual para el jurado ("⚡ Ejecutar Curva Espacios Iguales").
+
+#### DIAPOSITIVA 7: EVALUACIÓN Y PRUEBAS A ALGORITMOS (WER & WERw)
+- El Problema del WER Clásico: Trata igual el error en una preposición irrelevante que en una fecha crítica.
+- Fórmulas Matemáticas Clave:
+  - Algoritmo Wagner-Fischer: Alineación dinámica por matriz de Levenshtein D[i,j].
+  - WER Clásico: WER = (S + D + I) / N
+  - WER Ponderado: WERw = (Σ w_i * error_i) / (Σ w_i * ref_i)
+- Ponderaciones de Negocio: Fechas/Horas y Negaciones críticas ("no", "nunca") peso w = 3.0; Nombres propios w = 2.0; Verbos de acción w = 1.5; Artículos y muletillas w = 0.3.
+- Resultado: Whisper Medium alcanza WER clásico de 6.51% y WERw de 8.20%, cumpliendo la meta corporativa (< 10%).
+
+#### DIAPOSITIVA 8: BENCHMARKING DE RENDIMIENTO EN PRODUCCIÓN (SMALL vs. MEDIUM vs. LARGE)
+- Experimento Real: Procesamiento de la misma grabación real de liderazgo (4:50 min) sobre CPU local frente a la línea base Ground Truth de YouTube:
+- Tabla Comparativa:
+  - Whisper Small: Tiempo 227s (3.8 min, 6.4x más rápido), 2.261 caracteres (84.7% cobertura), 9 acuerdos. Fenómeno: Sesgo del 78% de tareas a Steve Jobs por omitir 30s de diálogo del equipo; deformación "Billatkinson" asignó reclutamiento a Burrell Smith.
+  - Whisper Medium: Tiempo 691s (11.5 min), 2.668 caracteres (99.2% cobertura), 8 acuerdos. Sweet Spot: balance equilibrado 50/50 entre Steve Jobs y Equipo Macintosh.
+  - Whisper Large: Tiempo 1.467s (24.4 min), 2.659 caracteres (99.5% cobertura), 6 acuerdos. Síntesis directiva de nivel C-Level, reconoce con exactitud histórica el hardware "Apple Lisa".
+- Conclusión MLOps: Whisper Medium es el modelo ideal de producción por balance costo/fidelidad.
+
+#### DIAPOSITIVA 9: DEMOSTRACIÓN EN VIVO (LIVE DEMO)
+- Pasos a Proyectar ante el Jurado:
+  1. Carga de audio en Angular (`http://localhost:4200`) seleccionando Estrategia 5 con switch de Modo Consenso Dual.
+  2. Visualización de la Minuta: Transcripción completa, resumen ejecutivo y tabla de acuerdos con score de similitud Fuzzy.
+  3. Ejecución de la Curva de Espacios Iguales: Clic en campana de notificaciones y detección de compromisos en mora.
+  4. Pestaña de Auditoría MLOps: Diff token a token de Levenshtein en verde/rojo/amarillo y registro de telemetría de VACAS.
+
+#### DIAPOSITIVA 10: CONCLUSIONES Y MATRIZ DE CUMPLIMIENTO (100%)
+- Logros Técnicos Demostrados:
+  - 100% de los compromisos de la asignatura cumplidos con código auditable.
+  - Resiliencia demostrada: Conmutación en caliente ante caídas < 1.5s y contingencia offline sin caídas de servicio.
+  - Precisión validada: WERw = 8.20% frente a Ground Truth humano.
+  - Control de proyectos continuo mediante la Curva de Espacios Iguales.
+- Repositorio Público: `github.com/FelipeCastro5/transcriptor-maestro` (FastAPI + Angular 19 + PostgreSQL + Transformers).
+
+#### DIAPOSITIVA 11: BANCO DE DEFENSA ANTE PREGUNTAS DEL DOCENTE (ANEXO)
+- Tarjetas con las 6 preguntas críticas preparadas:
+  1. ¿Dataset vs Base de Datos? (WAVs 16kHz + Ground Truth vs tablas operativas Postgres).
+  2. ¿Por qué una negación pesa 3.0 en el WERw? (Invertir el sentido de un compromiso es catastrófico para el proyecto).
+  3. ¿Cómo funciona Levenshtein por debajo? (Matriz dinámica Wagner-Fischer y backtracking de edición).
+  4. ¿Cómo programaron la Curva de Espacios Iguales? (Daemon APScheduler analizando moras y omisiones temporales).
+  5. ¿Cómo mitigan la caja negra de los LLMs? (Pydantic estricto, Consenso Dual, El Perceptrón y fallback offline).
+  6. ¿Qué pasó al comparar Small, Medium y Large? (Trade-off empírico CPU vs calidad, omisiones de diálogo y síntesis directiva).
+```
+
+---
+
 # 📽️ GUION Y ESTRUCTURA DE LA PRESENTACIÓN FINAL (SUSTENTACIÓN)
 # Transcriptor Maestro: Sistema Inteligente de Seguimiento de Acuerdos y Control de Proyectos
 
