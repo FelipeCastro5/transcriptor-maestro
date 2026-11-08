@@ -149,8 +149,8 @@ flowchart LR
   * Noviembre de 2026
 
 ### 1.2. 🎙️ Guion del Expositor (Palabra por palabra)
-> *"Muy buenos días, profesor y compañeros. Hoy les presentamos **Transcriptor Maestro**, un sistema inteligente distribuido diseñado para resolver uno de los problemas más costosos en la gestión de proyectos de ingeniería: la pérdida sistemática de acuerdos verbales en reuniones de trabajo.*  
-> *A lo largo de este proyecto no solo conectamos modelos de inteligencia artificial como Whisper y LLMs, sino que construimos una arquitectura empresarial completa con alta disponibilidad, resiliencia ante caídas de proveedores mediante nuestro sistema gemelo VACAS, auditoría de telemetría con El Perceptrón y un pipeline riguroso de MLOps con calibración matemática de WER ponderado y detección de Data Drift. A continuación, les mostraremos cómo transformamos conversaciones informales en compromisos auditables y accionables."*
+> *"Muy buenos días, profesor y compañeros. Hoy venimos a presentar la culminación y entrega final de nuestro proyecto **Transcriptor Maestro**. A lo largo del semestre les presentamos la propuesta arquitectónica en el Corte 1 y la fundamentación matemática de los modelos de voz en el Corte 2. Hoy cerramos ese ciclo demostrando cómo materializamos todas las promesas técnicas en una solución de ingeniería completa desplegada en producción.*  
+> *En esta presentación verán cómo los modelos de inteligencia artificial evaluados en las fases previas ahora operan dentro de una arquitectura empresarial con alta disponibilidad, resiliencia ante fallos mediante el sistema gemelo VACAS, auditoría con El Perceptrón y control automatizado de proyectos mediante la Curva de Espacios Iguales."*
 
 ---
 
@@ -165,9 +165,8 @@ flowchart LR
 * **Propuesta de Valor:** Automatización del ciclo completo: Audio $\rightarrow$ Compromisos $\rightarrow$ Asignación $\rightarrow$ Alertas.
 
 ### 2.2. 🎙️ Guion del Expositor (Palabra por palabra)
-> *"En cualquier equipo ágil, las ceremonias sincrónicas son el corazón de la toma de decisiones. Sin embargo, todos hemos vivido el problema de llegar a un Sprint Review y descubrir que una tarea crítica nadie la hizo porque 'se asumió' que otro se encargaría, o porque simplemente se olvidó.*  
-> *En Colombia, este problema se agrava por nuestra forma de hablar: rara vez decimos 'asignar ticket número 4 a Juan Pérez con fecha de vencimiento tal'; decimos 'Juancho, hágame la vuelta de revisar esos endpoints para el viernes'. El redactor humano muchas veces no consigna eso en Jira.*  
-> *Nuestra meta fue crear un sistema no intrusivo que escuche la reunión, entienda el dialecto conversacional sin censurar la informalidad, resuelva la identidad oficial de las personas y mantenga viva la trazabilidad de los acuerdos a través del tiempo."*
+> *"Como expusimos en el planteamiento inicial de nuestro proyecto, el problema raíz en los equipos de desarrollo es la brecha entre la informalidad de las ceremonias sincrónicas y la rigidez de los sistemas de seguimiento. En aquella ocasión identificamos tres patologías: el dialecto coloquial ('hacer la vuelta', 'yo le jalo'), el sesgo humano al redactar minutas y el olvido de compromisos semana a semana.*  
+> *En los cortes anteriores prometimos que la solución no obligaría al usuario a cambiar su forma de hablar; hoy demostramos cómo el sistema escucha la reunión, tolera la jerga conversacional, normaliza las identidades mediante Fuzzy Matching y mantiene viva la trazabilidad temporal de los acuerdos sin intervención manual."*
 
 ---
 
@@ -205,12 +204,8 @@ flowchart LR
 * **Capas del Sistema:** Frontend Angular 19 $\longleftrightarrow$ REST API FastAPI $\longleftrightarrow$ PostgreSQL 16 $\longleftrightarrow$ Modelos de IA.
 
 ### 2.2. 🎙️ Guion del Expositor (Palabra por palabra)
-> *"Nuestra arquitectura sigue el patrón desacoplado de microservicios por capas. Cuando el usuario sube un archivo desde la aplicación web en Angular 19, FastAPI recibe el stream en multipart y lo delega a un Background Task asíncrono.*  
-> *El pipeline ejecuta cuatro etapas secuenciales:*  
-> *Primero: el motor ASR de Whisper segmenta el audio y genera la transcripción bruta.*  
-> *Segundo: el texto entra a nuestro AIHandler, el cual selecciona la plantilla activa del Prompt Registry y ejecuta la inferencia semántica para estructurar los compromisos en JSON estricto.*  
-> *Tercero: el motor de Fuzzy Matching toma los nombres coloquiales como 'Juancho' o 'Mary' y calcula la distancia fonética contra el catálogo formal de la base de datos, asignando el responsable oficial.*  
-> *Y cuarto: El Perceptrón audita los tiempos de latencia y errores, mientras que los acuerdos quedan listos en el tablero Kanban y la minuta ejecutiva."*
+> *"En la sustentación del Corte 2 les mostramos un diagrama preliminar que concebía el sistema en dos etapas aisladas: transcripción por un lado y extracción por el otro. Para esta entrega final, hemos materializado ese esquema en un pipeline empresarial completamente interconectado y desacoplado.*  
+> *El usuario carga el audio desde Angular 19; FastAPI lo procesa de forma asíncrona mediante Background Tasks; Whisper genera la transcripción; el AIHandler aplica las plantillas del Prompt Registry; el módulo Fuzzy Matching resuelve los apodos fonéticos contra PostgreSQL; y El Perceptrón audita en tiempo real cada ejecución, entregando la minuta formalizada y el tablero Kanban en pantalla."*
 
 ---
 
@@ -229,10 +224,8 @@ flowchart LR
 * **Prompt Registry:** Control de versiones con hashes MD5 inmutables.
 
 ### 2.2. 🎙️ Guion del Expositor (Palabra por palabra)
-> *"El principal reto de llevar modelos generativos a producción es su carácter de 'caja negra' y la inestabilidad de las APIs públicas. Para resolver esto creamos el **Sistema Gemelo VACAS**.*  
-> *Si DeepSeek tiene latencia superior a 3 segundos o responde un error HTTP 500, el sistema conmuta en caliente en menos de 1.5 segundos a OpenAI. Y si se corta la conexión por completo, se activa la VACA de Emergencia local basada en reglas.*  
-> *Además, para sesiones críticas implementamos el **Modo Consenso Dual**: invocamos a DeepSeek y OpenAI concurrentemente en dos hilos paralelos. Si ambas respuestas coinciden con una discrepancia menor al 20%, se aprueba con Nivel Error 0; si discrepan más del 20%, El Perceptrón levanta una bandera Nivel 2 de advertencia cognitiva.*  
-> *En la capa de MLOps, calculamos en tiempo real el Data Drift léxico midiendo el ratio de palabras Out-Of-Vocabulary y versionamos cada prompt con su hash MD5 para asegurar reproducibilidad total."*
+> *"En el Corte 2 dejamos formulada una promesa de diseño crucial: si íbamos a usar LLMs para procesar minutas, debíamos mitigar la naturaleza de 'caja negra' y la inestabilidad de las APIs públicas mediante un mecanismo de contingencia. En aquel momento planteamos conceptualmente el mecanismo VACAS y El Perceptrón.*  
+> *Hoy les mostramos ese sistema 100% construido y operativo: una arquitectura gemela donde si el proveedor primario (DeepSeek) falla, conmuta en caliente en menos de 1.5 segundos a OpenAI; si se pierde internet, se activa la VACA de Emergencia offline basada en reglas lingüísticas; y para sesiones de alta fidelidad, implementamos el Modo Consenso Dual que ejecuta ambos modelos en paralelo y audita su discrepancia léxica."*
 
 ---
 
@@ -246,10 +239,8 @@ flowchart LR
 * **Canales de Alerta:** Persistencia en PostgreSQL (`alertas_sistema`), campana interactiva con contador en la UI de Angular y despacho por Webhooks (Discord/Slack/Mock).
 
 ### 2.2. 🎙️ Guion del Expositor (Palabra por palabra)
-> *"Un problema típico en la gestión de proyectos es que los acuerdos mueren en las minutas de papel o en PDFs olvidados. Aquí es donde entra la **Curva de Espacios Iguales**.*  
-> *Implementamos un SystemScheduler embebido con APScheduler que ejecuta periódicamente un barrido de todos los compromisos pendientes.*  
-> *El algoritmo no solo revisa fechas vencidas para marcarlas en mora, sino que aplica una regla de omisión histórica: si un compromiso fue pactado en la reunión 1, y ya pasaron la reunión 2 y la reunión 3 sin que nadie lo vuelva a mencionar, el sistema detecta una **Omisión Sistemática** y emite una alerta crítica a la campana del supervisor.*  
-> *Esto convierte al sistema en un ente activo de control de gestión que previene que los proyectos se descarrilen en silencio."*
+> *"En las sesiones de seguimiento anteriores se discutió que el software no podía ser un simple repositorio pasivo que esperara a que el usuario recordara consultar la minuta. En respuesta a esa retroalimentación, desarrollamos la **Curva de Espacios Iguales**.*  
+> *Programamos un daemon continuo con APScheduler que realiza barridos periódicos en segundo plano. El algoritmo vigila dos patologías de gestión: las tareas en mora por fecha vencida y, más importante aún, las **Omisiones Sistemáticas** —acuerdos pactados en reuniones previas que llevan dos o más sesiones consecutivas sin volver a mencionarse—, disparando alertas inmediatas en la campana del sistema."*
 
 ---
 
@@ -272,10 +263,9 @@ flowchart LR
 | **Longitud Relativa** | $0.996$ | **$0.998$** | $1.001$ | $1.00 \pm 0.05$ |
 
 ### 2.2. 🎙️ Guion del Expositor (Palabra por palabra)
-> *"Para cumplir con el nivel de rigor exigido por el docente, evaluamos matemáticamente las salidas de ASR palabra por palabra mediante el algoritmo de programación dinámica de Wagner-Fischer.*  
-> *Descubrimos algo fundamental: el WER clásico engaña. Whisper Small reporta un WER del 14%, lo cual parece decente; pero cuando aplicamos el **WER Ponderado ($WER_w$)**, el error se dispara al 21.4% porque falló en fechas de entrega y negaciones críticas.*  
-> *Whisper Large nos dio un excelente 4.12% de error, pero tardaba más de un minuto por audio y exigía más de 10 GB de VRAM.*  
-> *Por tanto, justificamos técnicamente la elección de **Whisper Medium**: con un WER clásico de $6.51\%$ y un WER ponderado de $8.20\%$, cumple holgadamente la meta del proyecto de estar por debajo del 10%, procesando el audio en menos de 29 segundos. Es el balance perfecto entre precisión semántica y costo computacional."*
+> *"Como recordarán de nuestra exposición del Corte 2, dedicamos una investigación profunda a medir matemáticamente las transcripciones palabra por palabra mediante el algoritmo dinámico de Wagner-Fischer sobre 1.504 palabras en Google Colab.*  
+> *En esa presentación demostramos que el WER clásico engaña: mientras Whisper Small mostraba un 14.6% aparentemente aceptable, nuestro **WER Ponderado ($WER_w$)** evidenció que el error real de negocio subía al 21.4% por fallar en fechas y negaciones críticas con peso 3.0.*  
+> *Ese análisis cuantitativo del Corte 2 fue el que justificó técnicamente la elección de **Whisper Medium** como el motor estándar de nuestro backend: con un WER clásico de $6.51\%$ y un WER ponderado de $8.20\%$, cumplió la meta de estar por debajo del 10% con una latencia inferior a 30 segundos."*
 
 ---
 
@@ -305,11 +295,9 @@ flowchart LR
   3. *Síntesis C-Level (Large):* Fusión de procesador y presupuesto en una directriz ejecutiva unificada.
 
 ### 2.2. 🎙️ Guion del Expositor (Palabra por palabra)
-> *"Para no quedarnos únicamente en la teoría de laboratorio, realizamos un experimento directo en producción ejecutando un audio real de 5 minutos sobre nuestro hardware CPU con los modelos Small, Medium y Large, contrastándolos contra el Ground Truth sincronizado de YouTube.*  
-> *Los resultados corroboran de forma contundente la justificación de nuestra arquitectura:*  
-> *Whisper Small procesó en solo 3.8 minutos, pero omitió tramos conversacionales clave; al desaparecer la voz del equipo, el LLM interpretó la escena como un monólogo autoritario y le asignó el 78% de las tareas a Steve Jobs. Además, unió las palabras 'Billatkinson' sin espacio, lo que hizo que el LLM le asignara la tarea de reclutamiento a Burrell Smith.*  
-> *Whisper Large, por su parte, demostró una perfección impresionante: tardó 24 minutos, reconoció con exactitud el proyecto Apple Lisa y consolidó las tareas en 6 acuerdos directivos de alto nivel.*  
-> *Sin embargo, **Whisper Medium** ratificó ser el punto de balance óptimo para producción: tardó 11 minutos en CPU (menos de 45 segundos en GPU), capturó el 99.2% del diálogo con fidelidad acústica y permitió al LLM delegar equilibradamente las tareas entre Steve Jobs y el Equipo Macintosh con un 95% de confianza Fuzzy."*
+> *"Sin embargo, en el Corte 2 nuestras pruebas se limitaron a una GPU de laboratorio en la nube. Por eso, para esta entrega final nos propusimos responder la pregunta definitiva de ingeniería: ¿qué ocurre con esos mismos tres modelos cuando corren en un entorno de producción real sobre CPU frente a una grabación real de 5 minutos y un Ground Truth sincronizado de YouTube?*  
+> *El experimento corroboró de forma contundente lo que habíamos previsto en el Corte 2: Whisper Small fue rápido (3.8 min), pero al recortar 30 segundos de diálogo técnico, el LLM asumió que Steve Jobs era el único responsable del 78% de las tareas, y unió fonéticamente 'Billatkinson' asignándole la tarea erróneamente a Burrell Smith.*  
+> *Whisper Large logró una síntesis ejecutiva impecable de 6 acuerdos pero tardó 24 minutos en CPU. Por tanto, confirmamos empíricamente que **Whisper Medium** es el punto de balance óptimo para producción: capturó el 99.2% del diálogo y permitió delegar equilibradamente las responsabilidades con 95% de confianza Fuzzy."*
 
 ## 🖥️ DIAPOSITIVA 9: DEMOSTRACIÓN EN VIVO (LIVE DEMO)
 
@@ -324,11 +312,11 @@ flowchart LR
   4. *Auditoría MLOps:* Mostrar el diff token a token coloreado de Levenshtein, el analizador de Data Drift y la activación de prompts.
 
 ### 2.2. 🎙️ Guion del Expositor (Palabra por palabra)
-> *"A continuación, pasamos a la demostración en vivo de la plataforma desplegada en nuestro entorno local.*  
-> *Vamos a procesar una sesión de prueba seleccionando nuestra Estrategia 5 con el switch de Consenso Dual activado.*  
-> *(El compañero muestra la pantalla) Como pueden ver, el sistema procesa el audio, extrae los compromisos y formaliza a los responsables resolviendo apodos mediante Fuzzy Matching.*  
-> *Si abrimos la campana de notificaciones en el header, podemos ejecutar en vivo el barrido de la Curva de Espacios Iguales: el sistema detecta de inmediato los compromisos que entraron en mora o que fueron omitidos sistemáticamente.*  
-> *Y finalmente, en la pestaña de Auditoría MLOps, podemos observar en tiempo real la alineación Levenshtein resaltada en colores: en verde las palabras acertadas, en rojo las sustituciones y en amarillo las omisiones, con el cálculo exacto de WER y el indicador de Data Drift."*
+> *"A continuación, pasamos a la demostración en vivo de la plataforma desplegada en nuestro entorno local, donde podrán ver articulados todos los componentes que fuimos construyendo y validando corte a corte.*  
+> *(El compañero muestra la pantalla) Vamos a procesar un audio seleccionando la Estrategia 5 con el Modo Consenso Dual activado.*  
+> *Como pueden observar, el sistema transcribe el audio, extrae los acuerdos y resuelve las identidades mediante Fuzzy Matching con su score de confianza.*  
+> *Si abrimos la campana de notificaciones, podemos ejecutar en vivo el barrido de la Curva de Espacios Iguales para auditar moras y omisiones históricas.*  
+> *Y finalmente, en la pestaña de Auditoría MLOps, verán operando en tiempo real la matriz de Levenshtein coloreada token por token (aciertos en verde, sustituciones en rojo y omisiones en amarillo), demostrando que la teoría matemática del Corte 2 está completamente implementada en el software."*
 
 ---
 
@@ -344,11 +332,11 @@ flowchart LR
 * **Enlaces del Repositorio:** `github.com/FelipeCastro5/transcriptor-maestro`
 
 ### 2.2. 🎙️ Guion del Expositor (Palabra por palabra)
-> *"Para concluir:*  
-> *Primero: demostramos que es posible cerrar la brecha entre la informalidad de las conversaciones sincrónicas y la rigurosidad de los sistemas de gestión de proyectos, sin obligar al usuario a cambiar su forma natural de hablar.*  
-> *Segundo: la implementación del WER ponderado evidenció la necesidad de evaluar los modelos de IA con métricas adaptadas al impacto del negocio y no con promedios planos.*  
-> *Tercero: el diseño del sistema VACAS y El Perceptrón garantiza que la aplicación no depende de la estabilidad de un único proveedor externo, garantizando conmutación en caliente en menos de 1.5 segundos ante cualquier indisponibilidad.*  
-> *Y cuarto: hemos cubierto el 100% de los compromisos adquiridos en la asignatura con código limpio, arquitectura desacoplada y repositorio auditable. Quedamos atentos a sus preguntas. Muchas gracias."*
+> *"Para concluir esta sustentación:*  
+> *Primero: cerramos con éxito la trayectoria del proyecto. Pasamos del diagnóstico conceptual en el Corte 1, a la rigurosa calibración matemática de ASR en el Corte 2, y hoy entregamos un software de producción robusto, desacoplado y resiliente.*  
+> *Segundo: demostramos que las métricas de negocio como el WER ponderado y los mecanismos de alta disponibilidad como VACAS son indispensables para llevar inteligencia artificial generativa a entornos reales de ingeniería.*  
+> *Tercero: cubrimos el 100% de los compromisos adquiridos en la asignatura con código limpio, arquitectura basada en microservicios y repositorio auditable.*  
+> *Agradecemos al docente por las retroalimentaciones en cada corte que guiaron la evolución del sistema. Quedamos atentos a sus preguntas. Muchas gracias."*
 
 ---
 
