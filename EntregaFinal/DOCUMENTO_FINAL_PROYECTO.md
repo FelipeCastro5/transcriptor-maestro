@@ -353,14 +353,12 @@ A lo largo de la asignatura, el equipo exploró y construyó 5 enfoques sucesivo
 ### **4.6. Pruebas de Resiliencia (*Chaos Engineering*) y Tiempos de Conmutación**
 Para demostrar experimentalmente la resiliencia de la arquitectura ante el jurado, se diseñó el endpoint `POST /auditoria/simular-conmutacion`. Al simular una caída forzada del LLM primario (DeepSeek):
 
-```text
-[VACAS] SIMULACIÓN DE FALLO: Forzando caída de VACA Primaria (DeepSeek).
-[VACAS] Fallo en VACA Primaria (ConnectionError). Disparando conmutación en caliente...
-[VACAS] Invocando VACA Réplica (OpenAI gpt-4o-mini)...
-[VACAS] Respuesta obtenida exitosamente de OPENAI_REPLICA en 1,240 ms.
-[PERCEPTRÓN] Clasificación: Estado Binario = 1 (Fallo Primaria Salvado), Nivel de Error = 1 (Crítico).
-[VACAS] Inferencia finalizada: Proveedor=OPENAI_REPLICA, Conmutación=True, Latencia=1,248 ms.
-```
+**Figura 4**  
+*Traza de ejecución en consola del mecanismo de conmutación en caliente (Hot-Failover < 1.5s) ante prueba de Chaos Engineering*
+
+![](doxc/imagenes/figura4_chaos_engineering.png)
+
+*Nota.* Registro de telemetría emitido por FastAPI al invocar el endpoint POST /auditoria/simular-conmutacion. Se evidencia la detección del fallo simulado, la activación de la réplica secundaria (OpenAI) y la clasificación del Perceptrón en 1.248 ms. Fuente: Elaboración propia (2026).
 
 **Resultado:** El sistema conmuta en caliente en **$1\,248\text{ ms}$**, respetando estrictamente el umbral máximo de diseño de $1.5\text{s}$ y el SLA global de $3.0\text{s}$.
 
