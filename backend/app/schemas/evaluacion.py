@@ -34,7 +34,7 @@ class CalibrarWERResponse(BaseModel):
     estado_calidad: str
     cumple_meta_sprint: bool
     alineacion: List[AlineacionToken] = []
-    creado_en: datetime
+    creado_en: Optional[datetime] = None
 
     class Config:
         from_attributes = True

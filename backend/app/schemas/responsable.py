@@ -15,7 +15,7 @@ class ResponsableCreate(ResponsableBase):
 class ResponsableResponse(ResponsableBase):
     id: str
     proyecto_id: Optional[str] = None
-    creado_en: datetime
+    creado_en: Optional[datetime] = None
 
     class Config:
         from_attributes = True
