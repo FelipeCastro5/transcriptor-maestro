@@ -1,4 +1,4 @@
-# 📘 DOCUMENTO TÉCNICO FINAL DE PROYECTO
+# DOCUMENTO TÉCNICO FINAL DE PROYECTO
 # Sistema Inteligente de Seguimiento de Acuerdos y Control de Proyectos ("Transcriptor Maestro")
 
 > **Universidad:** Universidad ECCI — Facultad de Ingeniería  
@@ -12,9 +12,7 @@
 > **Fecha de Entrega:** Noviembre de 2026  
 > **Repositorio Oficial:** [github.com/FelipeCastro5/transcriptor-maestro](https://github.com/FelipeCastro5/transcriptor-maestro.git)  
 
----
-
-## 📑 TABLA DE CONTENIDO
+## TABLA DE CONTENIDO
 
 1. [Capítulo 1: Contexto y Formulación del Problema](#capítulo-1-contexto-y-formulación-del-problema)
    * 1.1. Antecedentes y Planteamiento del Problema
@@ -48,8 +46,6 @@
    * 5.2. Discusión sobre Cajas Negras, Dialecto Coloquial y Trade-offs de Despliegue
    * 5.3. Conclusiones Principales
    * 5.4. Referencias Bibliográficas
-
----
 
 ## CAPÍTULO 1: CONTEXTO Y FORMULACIÓN DEL PROBLEMA
 
@@ -86,8 +82,6 @@ El proyecto abarca el desarrollo de una solución integral desplegable en entorn
 * **Frontend:** Single Page Application (SPA) reactiva construida en Angular 19.
 * **Modelos:** OpenAI Whisper (versiones local y API), DeepSeek-V3 / Chat, GPT-4o-mini y motor de reglas lingüísticas offline.
 
----
-
 ## CAPÍTULO 2: EL DATASET (CONJUNTO DE DATOS)
 
 ### 2.1. Diferenciación Conceptual Crítica: Dataset de IA vs. Base de Datos Relacional
@@ -102,6 +96,9 @@ Dado que las reuniones corporativas reales de empresas de desarrollo contienen i
 
 ### 2.3. Ficha Técnica y Metadatos Acústicos
 Las características físicas y espectrales del dataset se estandarizaron conforme a los estándares de la industria en procesamiento de voz:
+
+**Tabla 1**  
+*Especificaciones físicas, acústicas y formales del Dataset de Machine Learning*
 
 | Parámetro Acústico | Especificación del Dataset | Justificación Técnica |
 | :--- | :--- | :--- |
@@ -120,75 +117,29 @@ Para cada muestra de audio se construyó una transcripción ortográfica manual 
 ### 2.5. Preprocesamiento de Señal y Segmentación Temporal (*Chunking*)
 Uno de los principales problemas identificados en los prototipos iniciales (Intento 1 e Intento 3) fue el desbordamiento de memoria (*Out of Memory* - OOM) y la degradación atencional de Whisper al procesar audios superiores a 2 minutos continuos. Para mitigar este cuello de botella, el sistema implementó la técnica de **Chunking de 30 segundos con solapamiento (*stride*) de 5 segundos**:
 
-```mermaid
-flowchart LR
-    A["Audio Continuo (8+ min)"] --> B["Chunk 1 [0s - 30s]"]
-    A --> C["Chunk 2 [25s - 55s] (Stride 5s)"]
-    A --> D["Chunk 3 [50s - 80s] (Stride 5s)"]
-    B --> E["Inferencia Whisper"]
-    C --> E
-    D --> E
-    E --> F["Reconstrucción Textual y Desduplicación"]
-```
+**Figura 1**  
+*Esquema de segmentación temporal deslizante (Chunking 30s con Stride 5s) para mitigación de sobrecarga atencional y memoria en ASR*
+
+![](doxc/imagenes/figura1_chunking.png)
+
+*Nota.* Flujo de división de señales acústicas extensas en bloques con traslape temporal de 5 segundos para garantizar continuidad léxica y contextual antes del motor Whisper. Fuente: Elaboración propia (2026).
 
 Este procedimiento garantiza:
 1. Inferencia dentro del límite temporal nativo de los *encoders* posicionales de Whisper ($30\text{s}$).
 2. Preservación del contexto semántico en las palabras frontera gracias al *stride* de $5\text{s}$.
 3. Compatibilidad con tarjetas gráficas de consumo moderado o inferencia en CPU sin saturación de memoria RAM.
 
----
-
 ## CAPÍTULO 3: ARQUITECTURA, FLUJO DE DATOS Y MLOPS / DEVOPS
 
 ### 3.1. Flujo de Datos Global (*Pipeline End-to-End*)
 La solución implementa una arquitectura desacoplada y asíncrona estructurada en capas de alta cohesión:
 
-```mermaid
-flowchart TD
-    subgraph Cliente ["Capa de Presentación (Frontend SPA)"]
-        UI["Angular 19 SPA"]
-        UI_UP["Subida de Audio & Configuración"]
-        UI_DASH["Minuta, Kanban y MLOps Tab"]
-        UI_BELL["Campana de Alertas y Curva Espacios Iguales"]
-    end
+**Figura 2**  
+*Arquitectura general en cuatro capas desacopladas del sistema Transcriptor Maestro*
 
-    subgraph API ["Capa de Exposición y Control (FastAPI)"]
-        ROUTER["API Router REST (/api/v1)"]
-        BG["FastAPI BackgroundTasks"]
-        SCHED["SystemScheduler (APScheduler)"]
-    end
+![](doxc/imagenes/figura2_arquitectura.png)
 
-    subgraph Core ["Capa de Inteligencia y Negocio"]
-        AIH["AIHandler (Orquestador Dinámico)"]
-        ASR["ASR Engine (Whisper Chunking 30s)"]
-        VACAS["VACASManager (Respaldo Gemelo & Consenso)"]
-        PERC["PerceptronAuditor (SLA 3s & Telemetría)"]
-        FUZZY["FuzzyMatcher (Resolución de Responsables)"]
-        EVAL["EvalService (WER, WERw y Data Drift)"]
-        REG["PromptRegistry (MD5 Hashes)"]
-    end
-
-    subgraph Datos ["Capa de Persistencia y Almacenamiento"]
-        PG[("PostgreSQL 16 (transcriptor_db)")]
-        FS["Storage Local (Audios y Salidas MD/JSON)"]
-    end
-
-    UI_UP -->|HTTP POST Multipart| ROUTER
-    ROUTER --> BG
-    BG --> AIH
-    AIH --> ASR
-    ASR --> FS
-    AIH --> VACAS
-    VACAS -->|Auditoría| PERC
-    PERC --> PG
-    AIH --> FUZZY
-    FUZZY --> PG
-    SCHED -->|Barrido Medianoche| PG
-    SCHED -->|Alertas| UI_BELL
-    UI_DASH -->|Telemetría MLOps| EVAL
-    EVAL --> PG
-    REG --> AIH
-```
+*Nota.* Distribución desacoplada entre cliente Angular 19, orquestación asíncrona FastAPI, módulos cognitivos VACAS/Perceptrón y persistencia transaccional en PostgreSQL 16. Fuente: Elaboración propia (2026).
 
 ### 3.2. Ciclo de Vida MLOps y Monitoreo de Data Drift
 En sistemas de procesamiento de lenguaje natural en producción, el rendimiento de los modelos se degrada cuando la distribución del vocabulario de entrada se desvía de la distribución con la que fueron concebidos (*Covariate Shift / Data Drift*).
@@ -249,31 +200,12 @@ $$\mathbf{x} = \begin{pmatrix} \text{Latencia (ms)} \\ \text{Fallo de Proveedor 
 ### 3.6. DevOps y Automatización: Curva de Espacios Iguales y Sistema de Alertas
 La **Curva de Espacios Iguales** representa el principio de supervisión continua periódica de compromisos. En lugar de requerir que un supervisor humano consulte manualmente el estado de las tareas, [`SystemScheduler`](file:///c:/MisProyectos/ECCI/trasncriptor%20maestro/prototipos/backend/app/core/scheduler.py) ejecuta un barrido automático de medianoche (configurable a intervalos continuos para demostración):
 
-```mermaid
-sequenceDiagram
-    autonumber
-    participant S as SystemScheduler (APScheduler)
-    participant DB as PostgreSQL (acuerdos)
-    participant AS as AlertService
-    participant UI as Campana Angular (🔔)
+**Figura 3**  
+*Diagrama de secuencia temporal del proceso de auditoría y disparo de alertas bajo la Curva de Espacios Iguales*
 
-    S->>DB: Escanear acuerdos en estado "pendiente"
-    DB-->>S: Lista de compromisos activos
-    loop Para cada acuerdo
-        opt Fecha límite < Fecha actual
-            S->>DB: Actualizar estado a "atrasado"
-            S->>DB: Registrar en historial_estados
-            S->>AS: Emitir Alerta WARNING (Atraso)
-        end
-        opt Compromiso no mencionado en >= 2 reuniones posteriores
-            S->>AS: Emitir Alerta CRITICAL (Omisión Sistemática)
-        end
-    end
-    AS->>DB: Persistir en alertas_sistema
-    AS-->>UI: Reflejar en contador de alertas no leídas
-```
+![](doxc/imagenes/figura3_secuencia_curva.png)
 
----
+*Nota.* Ciclo de barrido periódico ejecutado por APScheduler para la identificación de compromisos en mora y omisiones sistemáticas en reuniones secuenciales. Fuente: Elaboración propia (2026).
 
 ## CAPÍTULO 4: PRUEBAS Y EVALUACIÓN DE ALGORITMOS
 
@@ -333,6 +265,9 @@ Con la matriz de pesos calibrada para seguimiento de proyectos:
 #### 4.4.1. Evaluación Sintética sobre Audio Patrón de Oro (GPU CUDA)
 Se evaluó el audio patrón de oro (`original.mp3`, $N = 1\,504$ palabras en Ground Truth) sobre las 3 variantes de OpenAI Whisper bajo igualdad de condiciones computacionales (GPU CUDA):
 
+**Tabla 2**  
+*Benchmarking cuantitativo de las variantes de OpenAI Whisper sobre el audio patrón de oro ($N = 1.504$ palabras)*
+
 | Métrica Evaluada | Whisper Small | Whisper Medium | Whisper Large | Meta del Proyecto |
 | :--- | :---: | :---: | :---: | :---: |
 | **Tiempo de Inferencia (s)** | $12.4\text{ s}$ | $28.7\text{ s}$ | $68.2\text{ s}$ | $< 60\text{ s}$ |
@@ -345,6 +280,8 @@ Se evaluó el audio patrón de oro (`original.mp3`, $N = 1\,504$ palabras en Gro
 | **WER Ponderado ($WER_w$)** | **$21.40\%$** | **$8.20\%$** | **$5.15\%$** | **$< 10.0\%$** |
 | **Precisión Palabra (%)** | $89.22\%$ | $95.14\%$ | $97.07\%$ | $> 90.0\%$ |
 | **Longitud Relativa ($\text{LR}$)** | $0.996$ | $0.998$ | $1.001$ | $1.00 \pm 0.05$ |
+
+*Nota.* Pruebas realizadas sobre GPU NVIDIA con remuestreo homogéneo a 16 kHz. Métricas computadas mediante alineación dinámica de Levenshtein. Fuente: Elaboración propia (2026).
 
 #### Conclusión del Benchmarking ASR
 * **Whisper Small:** Aunque es rápido ($12.4\text{s}$), su $WER_w$ se dispara al $21.4\%$, fallando en 4 fechas de entrega clave. No cumple la meta corporativa.
@@ -374,7 +311,10 @@ Se extrajo y normalizó la transcripción original de referencia de la fuente de
 ##### B. Métricas Empíricas de Ejecución en Base de Datos de Producción
 Los 3 registros procesados en la base de datos del sistema (`transcriptor_db`) arrojaron los siguientes resultados objetivos:
 
-| Métrica de Producción | 🟡 Whisper Small (`MEET-7D498FBE`) | 🔵 Whisper Medium (`MEET-FAD12C2B`) | 🟣 Whisper Large (`MEET-7E0259E2`) |
+**Tabla 3**  
+*Métricas empíricas de ejecución en producción sobre hardware CPU convencional (Intel/AMD)*
+
+| Métrica de Producción |  Whisper Small (`MEET-7D498FBE`) |  Whisper Medium (`MEET-FAD12C2B`) |  Whisper Large (`MEET-7E0259E2`) |
 | :--- | :---: | :---: | :---: |
 | **Tiempo de Cómputo CPU** | **227.93 s** (~3.80 min) | **691.64 s** (~11.53 min) | **1.467.19 s** (~24.45 min) |
 | **Aceleración Relativa** | **$6.44\times$ más rápido que Large** | **$2.12\times$ más rápido que Large** | Línea base de alta resolución |
@@ -386,6 +326,8 @@ Los 3 registros procesados en la base de datos del sistema (`transcriptor_db`) a
 | **Latencia Inferencia LLM (VACAS)** | 4.431 ms | 3.697 ms | 3.820 ms |
 | **Reconocimiento de Entidades** | `Billatkinson` (unido), `Liza` | `Bill Atkinson`, `Elisa` | **`Bill Atkinson`, `Lisa` (Exacto)** |
 
+*Nota.* Resultados obtenidos en entorno local de ejecución (CPU x86_64) con audio real no controlado de 4:50 minutos. Fuente: Base de datos transcriptor_db (2026).
+
 ##### C. Análisis Forense de Fenómenos Acústicos y Cognitivos
 1. **Pérdida del Actor Colectivo (Efecto Monopolio en Small):** Whisper Small recortó la réplica del equipo de diseño (*«estamos sufriendo con la interfaz... los resultados son nulos»*). Al desaparecer la interacción bidireccional, DeepSeek interpretó la escena como un monólogo autoritario y le adjudicó el 77.8% de las tareas a Steve Jobs en solitario. En Medium y Large, la preservación del diálogo permitió una delegación balanceada de tareas técnicas al equipo.
 2. **Deformación Fonética de Entidades (`Billatkinson` $\rightarrow$ Burrell Smith):** En Small, al unirse las palabras `Billatkinson` sin espacio, el LLM no reconoció a "Bill" como sujeto al inicio. Al final, ante la orden *"Bill, ven conmigo a reclutar"*, el LLM resolvió la anáfora asumiendo que "Bill" era el diminutivo coloquial de **Burrell Smith**, asignándole erróneamente la tarea. En Medium y Large, el espaciado correcto permitió un Fuzzy Matching del 95% con Bill Atkinson.
@@ -395,6 +337,9 @@ Los 3 registros procesados en la base de datos del sistema (`transcriptor_db`) a
 ### 4.5. Evolución y Benchmarking de los 5 Prototipos del Handler de IA
 A lo largo de la asignatura, el equipo exploró y construyó 5 enfoques sucesivos para resolver la extracción cognitiva de acuerdos:
 
+**Tabla 4**  
+*Evolución y caracterización comparativa de los cinco prototipos del orquestador AIHandler*
+
 | Enfoque / Prototipo | Motor ASR | Motor LLM / Reglas | Resiliencia | Pros | Contras |
 | :--- | :--- | :--- | :---: | :--- | :--- |
 | **Intento 1 (Reglas Offline)** | Whisper Base Local | spaCy + Regex gramaticales | Offline pura | $0\text{ ms}$ latencia de API, costo cero. | Incapaz de extraer compromisos informales o implícitos. |
@@ -402,6 +347,8 @@ A lo largo de la asignatura, el equipo exploró y construyó 5 enfoques sucesivo
 | **Intento 3 (Elemental)** | Whisper Small Local | DeepSeek API (Prompt elemental) | Sin failover | Rápido y devuelve JSON estructurado. | Si la API de DeepSeek cae, el proceso se aborta por completo. |
 | **Intento 4 (Informal)** | Whisper Medium | DeepSeek (Prompt modismos colombianos) | Sin failover | Interpreta modismos (*"hacer la vuelta"*); genera Dashboard MD. | Sin auditoría de latencia ni mecanismo de contingencia. |
 | **Intento 5 (Híbrido Maduro)** | **Whisper Medium (Chunking 30s)** | **DeepSeek + OpenAI (Doble llamada + VACAS)** | **Total (Hot-Failover + Consenso)** | **Cumple el 100% de los SLOs; captura el 95%+ de tareas con tolerancia a caídas.** | Requiere gestión de credenciales y orquestación multi-hilo. |
+
+*Nota.* Comparativa de madurez técnica y tolerancia a fallos entre los enfoques implementados durante el ciclo de vida del proyecto. Fuente: Elaboración propia (2026).
 
 ### 4.6. Pruebas de Resiliencia (*Chaos Engineering*) y Tiempos de Conmutación
 Para demostrar experimentalmente la resiliencia de la arquitectura ante el jurado, se diseñó el endpoint `POST /auditoria/simular-conmutacion`. Al simular una caída forzada del LLM primario (DeepSeek):
@@ -417,22 +364,23 @@ Para demostrar experimentalmente la resiliencia de la arquitectura ante el jurad
 
 **Resultado:** El sistema conmuta en caliente en **$1\,248\text{ ms}$**, respetando estrictamente el umbral máximo de diseño de $1.5\text{s}$ y el SLA global de $3.0\text{s}$.
 
----
-
 ## CAPÍTULO 5: RESULTADOS, CONCLUSIONES Y TRABAJO FUTURO
 
 ### 5.1. Matriz de Cumplimiento de Promesas frente a la Entrega Final
 
+**Tabla 5**  
+*Matriz de verificación y cumplimiento del 100% de los compromisos de la asignatura*
+
 | Requisito / Promesa Inicial | Estado Final | Mecanismo de Demostración y Validación |
 | :--- | :---: | :--- |
-| **ASR Whisper con $WER < 10\%$** | 🟢 **100% CUMPLIDO** | Benchmark experimental verificado ($WER = 6.51\%$, $WER_w = 8.20\%$). |
-| **Filtro y Resolución de Responsables** | 🟢 **100% CUMPLIDO** | Mapeo fuzzy fonético (`thefuzz`) con normalización y score de confianza en BD. |
-| **SLA de Latencia de Inferencia $< 3\text{s}$** | 🟢 **100% CUMPLIDO** | Telemetría auditada por El Perceptrón registrada en `auditoria_ia_logs`. |
-| **Tolerancia a Fallos y Alta Disponibilidad** | 🟢 **100% CUMPLIDO** | Cadena VACAS en caliente ($< 1.5\text{s}$) y Modo Consenso Dual paralelo ($\Delta \le 20\%$). |
-| **Curva de Espacios Iguales & Alertas** | 🟢 **100% CUMPLIDO** | Scheduler APScheduler activo; detección de atrasos y omisiones sistemáticas en UI. |
-| **Monitoreo MLOps y Data Drift** | 🟢 **100% CUMPLIDO** | Servicio matemático en vivo con alineación Levenshtein y detector léxico OOV. |
-| **Prompt Registry Versionado** | 🟢 **100% CUMPLIDO** | Catálogo con MD5 Hashes y activación dinámica en producción. |
-| **Frontend Full-Stack Desplegado** | 🟢 **100% CUMPLIDO** | Angular 19 SPA interactiva compilada sin advertencias ni errores. |
+| **ASR Whisper con $WER < 10\%$** |  **100% CUMPLIDO** | Benchmark experimental verificado ($WER = 6.51\%$, $WER_w = 8.20\%$). |
+| **Filtro y Resolución de Responsables** |  **100% CUMPLIDO** | Mapeo fuzzy fonético (`thefuzz`) con normalización y score de confianza en BD. |
+| **SLA de Latencia de Inferencia $< 3\text{s}$** |  **100% CUMPLIDO** | Telemetría auditada por El Perceptrón registrada en `auditoria_ia_logs`. |
+| **Tolerancia a Fallos y Alta Disponibilidad** |  **100% CUMPLIDO** | Cadena VACAS en caliente ($< 1.5\text{s}$) y Modo Consenso Dual paralelo ($\Delta \le 20\%$). |
+| **Curva de Espacios Iguales & Alertas** |  **100% CUMPLIDO** | Scheduler APScheduler activo; detección de atrasos y omisiones sistemáticas en UI. |
+| **Monitoreo MLOps y Data Drift** |  **100% CUMPLIDO** | Servicio matemático en vivo con alineación Levenshtein y detector léxico OOV. |
+| **Prompt Registry Versionado** |  **100% CUMPLIDO** | Catálogo con MD5 Hashes y activación dinámica en producción. |
+| **Frontend Full-Stack Desplegado** |  **100% CUMPLIDO** | Angular 19 SPA interactiva compilada sin advertencias ni errores. |
 
 ### 5.2. Discusión sobre Cajas Negras, Dialecto Coloquial y Trade-offs de Despliegue
 * **Los LLMs como Cajas Negras:** Como se debatió en la Clase 14, las redes neuronales multicapa y los LLMs constituyen aproximadores de funciones no lineales de alta complejidad que pueden sufrir de alucinaciones. El sistema resolvió esta vulnerabilidad forzando validación tipada con Pydantic, delimitadores estrictos de JSON y el modo de consenso por votación dual.
