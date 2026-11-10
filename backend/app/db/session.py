@@ -41,6 +41,14 @@ def init_db():
     Crea todas las tablas si no existen y siembra datos iniciales de prueba (Proyecto y Responsables).
     """
     Base.metadata.create_all(bind=engine)
+
+    # Asegurar que la restricción CHECK en PostgreSQL soporte el estado 'CANCELADO'
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE reuniones DROP CONSTRAINT IF EXISTS reuniones_estado_proceso_check"))
+            conn.execute(text("ALTER TABLE reuniones ADD CONSTRAINT reuniones_estado_proceso_check CHECK (estado_proceso IN ('EN_COLA', 'PROCESANDO', 'COMPLETADO', 'FALLIDO', 'CANCELADO'))"))
+    except Exception:
+        pass
     
     # Sembrar datos base si la tabla responsables está vacía
     db = SessionLocal()

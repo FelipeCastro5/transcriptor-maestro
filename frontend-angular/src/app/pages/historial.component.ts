@@ -22,7 +22,12 @@ import { ReunionResumen } from '../core/models';
             <a class="item" [routerLink]="['/minuta', r.id_reunion]">
               <div class="row-between">
                 <strong>{{ r.nombre_archivo }}</strong>
-                <span [class]="'badge ' + r.estado">{{ r.estado }}</span>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  @if (r.estado === 'EN_COLA' || r.estado === 'PROCESANDO') {
+                    <button class="danger mini" (click)="detener($event, r.id_reunion)">⏹ Detener</button>
+                  }
+                  <span [class]="'badge ' + r.estado">{{ r.estado }}</span>
+                </div>
               </div>
               <span class="muted small">{{ r.id_reunion }} · {{ r.total_acuerdos }} acuerdo(s)</span>
               @if (r.resumen_ejecutivo) { <p class="extracto">{{ r.resumen_ejecutivo }}</p> }
@@ -39,8 +44,21 @@ export class HistorialComponent implements OnInit {
   error = signal('');
 
   ngOnInit() {
+    this.cargar();
+  }
+
+  cargar() {
     this.api.listarReuniones().subscribe({
       next: (r) => this.reuniones.set(r.data),
+      error: (e: Error) => this.error.set(e.message),
+    });
+  }
+
+  detener(event: MouseEvent, id: string) {
+    event.preventDefault();
+    event.stopPropagation();
+    this.api.cancelarReunion(id).subscribe({
+      next: () => this.cargar(),
       error: (e: Error) => this.error.set(e.message),
     });
   }

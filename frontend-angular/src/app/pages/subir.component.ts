@@ -18,14 +18,27 @@ interface Proceso {
   template: `
     @if (proceso(); as p) {
       <section class="card center">
-        @if (p.estado !== 'FALLIDO') { <div class="spinner"></div> }
-        <h2>{{ p.estado === 'FALLIDO' ? 'El procesamiento falló' : 'Procesando reunión…' }}</h2>
+        @if (p.estado === 'EN_COLA' || p.estado === 'PROCESANDO') {
+          <div class="spinner"></div>
+        }
+        <h2>
+          {{ p.estado === 'FALLIDO' ? 'El procesamiento falló' : p.estado === 'CANCELADO' ? 'Procesamiento cancelado' : 'Procesando reunión…' }}
+        </h2>
         <p class="muted">{{ p.id }}</p>
         <span [class]="'badge ' + p.estado">{{ p.estado }}</span>
         <p>{{ p.progreso }}</p>
-        @if (p.error) { <p class="error">{{ p.error }}</p> }
+        @if (p.error && p.estado !== 'CANCELADO') { <p class="error">{{ p.error }}</p> }
         @if (error()) { <p class="error">{{ error() }}</p> }
-        @if (p.estado === 'FALLIDO') { <button (click)="reiniciar()">Intentar de nuevo</button> }
+        <div style="display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap; justify-content: center;">
+          @if (p.estado === 'EN_COLA' || p.estado === 'PROCESANDO') {
+            <button class="danger" [disabled]="cancelando()" (click)="detener()">
+              {{ cancelando() ? 'Cancelando…' : '⏹ Detener procesamiento' }}
+            </button>
+          }
+          @if (p.estado === 'FALLIDO' || p.estado === 'CANCELADO') {
+            <button class="primary" (click)="reiniciar()">Subir otro archivo / Intentar de nuevo</button>
+          }
+        </div>
       </section>
     } @else {
       <section class="grid-2">
@@ -107,6 +120,7 @@ export class SubirComponent implements OnDestroy {
   file = signal<File | null>(null);
   drag = signal(false);
   enviando = signal(false);
+  cancelando = signal(false);
   proceso = signal<Proceso | null>(null);
   error = signal('');
 
@@ -157,13 +171,41 @@ export class SubirComponent implements OnDestroy {
             this.polling?.unsubscribe();
             this.router.navigate(['/minuta', id]);
           }
-          if (data.estado === 'FALLIDO') this.polling?.unsubscribe();
+          if (data.estado === 'FALLIDO' || data.estado === 'CANCELADO') {
+            this.polling?.unsubscribe();
+          }
         },
         error: (e: Error) => this.error.set(e.message),
       });
   }
 
+  detener() {
+    const p = this.proceso();
+    if (!p || this.cancelando()) return;
+    this.cancelando.set(true);
+    this.error.set('');
+    this.polling?.unsubscribe();
+    this.api.cancelarReunion(p.id).subscribe({
+      next: ({ data }) => {
+        this.cancelando.set(false);
+        this.proceso.set({
+          id: p.id,
+          estado: data.estado,
+          progreso: data.progreso_estimado,
+          error: null,
+        });
+      },
+      error: (e: Error) => {
+        this.cancelando.set(false);
+        this.error.set(e.message);
+      },
+    });
+  }
+
   reiniciar() {
+    this.polling?.unsubscribe();
+    this.cancelando.set(false);
+    this.error.set('');
     this.proceso.set(null);
     this.file.set(null);
   }

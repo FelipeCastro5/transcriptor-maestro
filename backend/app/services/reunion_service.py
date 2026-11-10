@@ -14,7 +14,7 @@ from app.db.models.responsable import Responsable
 from app.db.models.historial import HistorialEstado
 from app.schemas.reunion import EstadoReunion, EstrategiaIA
 from app.schemas.acuerdo import EstadoAcuerdo
-from app.services.ai_handler import ai_handler
+from app.services.ai_handler import ai_handler, ProcesamientoCanceladoError
 from app.services.matching import fuzzy_matcher
 from app.services.storage_service import storage_service
 from app.services.alert_service import alert_service
@@ -106,6 +106,10 @@ class ReunionService:
             if not reunion:
                 return
 
+            if reunion.estado_proceso == EstadoReunion.CANCELADO.value or id_reunion in ai_handler.reuniones_canceladas:
+                print(f"[CANCEL] Reunión {id_reunion} ya estaba marcada como CANCELADA antes de iniciar.")
+                return
+
             reunion.estado_proceso = EstadoReunion.PROCESANDO.value
             consenso_txt = " con Consenso Dual" if modo_consenso else ""
             reunion.progreso_estimado = f"Transcribiendo y analizando con Estrategia {estrategia.value} (Whisper {modelo_whisper}{consenso_txt})..."
@@ -124,6 +128,11 @@ class ReunionService:
                 modelo_llm=modelo_llm,
                 modo_consenso=modo_consenso
             )
+
+            # Verificar si el usuario canceló mientras corría el modelo
+            db.refresh(reunion)
+            if reunion.estado_proceso == EstadoReunion.CANCELADO.value or id_reunion in ai_handler.reuniones_canceladas:
+                raise ProcesamientoCanceladoError(f"Procesamiento de la reunión '{id_reunion}' detenido por el usuario.")
 
             catalogo = db.query(Responsable).filter(Responsable.activo == True).all()
 
@@ -192,16 +201,72 @@ class ReunionService:
             except Exception as e_clean:
                 print(f"[STORAGE-WARN] No se pudieron limpiar temporales de reunion {id_reunion}: {e_clean}")
 
-        except Exception as e:
+        except ProcesamientoCanceladoError as e_cancel:
             db.rollback()
             reunion = db.query(Reunion).filter(Reunion.id == id_reunion).first()
             if reunion:
+                reunion.estado_proceso = EstadoReunion.CANCELADO.value
+                reunion.progreso_estimado = "Procesamiento detenido manualmente por el usuario."
+                reunion.error_detalle = str(e_cancel)
+                reunion.actualizado_en = datetime.utcnow()
+                db.commit()
+            try:
+                storage_service.limpiar_archivos_reunion(id_reunion)
+            except Exception:
+                pass
+            print(f"[CANCEL] Reunión {id_reunion} cancelada exitosamente.")
+        except Exception as e:
+            db.rollback()
+            reunion = db.query(Reunion).filter(Reunion.id == id_reunion).first()
+            if reunion and reunion.estado_proceso != EstadoReunion.CANCELADO.value and id_reunion not in ai_handler.reuniones_canceladas:
                 reunion.estado_proceso = EstadoReunion.FALLIDO.value
                 reunion.progreso_estimado = "Fallo en procesamiento de IA"
                 reunion.error_detalle = str(e)
                 reunion.actualizado_en = datetime.utcnow()
                 db.commit()
             print(f"[ERROR] Error procesando reunion {id_reunion}: {e}")
+        finally:
+            ai_handler.limpiar_cancelacion(id_reunion)
+            db.close()
+
+    def cancelar_reunion(self, id_reunion: str) -> Optional[dict]:
+        """
+        Señaliza la cancelación inmediata de una reunión en curso o en cola,
+        actualiza su estado a CANCELADO en la base de datos y limpia archivos temporales.
+        """
+        ai_handler.marcar_cancelada(id_reunion)
+        db: Session = SessionLocal()
+        try:
+            r = db.query(Reunion).filter(Reunion.id == id_reunion).first()
+            if not r:
+                return None
+
+            if r.estado_proceso in [EstadoReunion.EN_COLA.value, EstadoReunion.PROCESANDO.value]:
+                r.estado_proceso = EstadoReunion.CANCELADO.value
+                r.progreso_estimado = "Procesamiento detenido manualmente por el usuario."
+                r.error_detalle = "Cancelado por solicitud del usuario."
+                r.actualizado_en = datetime.utcnow()
+                db.commit()
+                db.refresh(r)
+
+                try:
+                    storage_service.limpiar_archivos_reunion(id_reunion)
+                except Exception as e_clean:
+                    print(f"[STORAGE-WARN] No se pudieron limpiar temporales al cancelar {id_reunion}: {e_clean}")
+
+            return {
+                "id_reunion": r.id,
+                "nombre_archivo": r.nombre_archivo,
+                "estado": EstadoReunion(r.estado_proceso),
+                "progreso_estimado": r.progreso_estimado,
+                "fecha_registro": r.creado_en,
+                "fecha_actualizacion": r.actualizado_en,
+                "error_detalle": r.error_detalle
+            }
+        except Exception as e:
+            db.rollback()
+            print(f"[ERROR] Error al cancelar reunión {id_reunion}: {e}")
+            raise HTTPException(status_code=500, detail=f"Error al cancelar la reunión: {e}")
         finally:
             db.close()
 

@@ -51,6 +51,10 @@ export class ApiService {
     return this.get<ReunionEstado>(`${this.api}/reuniones/${id}/estado`);
   }
 
+  cancelarReunion(id: string) {
+    return this.send<ReunionEstado>('post', `${this.api}/reuniones/${id}/cancelar`, {});
+  }
+
   resultadosReunion(id: string) {
     return this.get<ReunionDetalle>(`${this.api}/reuniones/${id}/resultados`);
   }

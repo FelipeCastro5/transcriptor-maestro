@@ -9,6 +9,7 @@ class EstadoReunion(str, Enum):
     PROCESANDO = "PROCESANDO"
     COMPLETADO = "COMPLETADO"
     FALLIDO = "FALLIDO"
+    CANCELADO = "CANCELADO"
 
 class EstrategiaIA(int, Enum):
     ESTRATEGIA_1_REGLAS_OFFLINE = 1

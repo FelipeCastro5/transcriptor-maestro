@@ -147,6 +147,35 @@ async def get_estado_reunion(id_reunion: str):
     )
     return ResponseUtil.success(data=data, message="Estado de reunión obtenido exitosamente")
 
+@router.post(
+    "/{id_reunion}/cancelar",
+    response_model=ResponseDto[ReunionEstadoResponse],
+    summary="Cancelar el procesamiento en curso de una reunión",
+    description="Detiene el procesamiento de una reunión en estado EN_COLA o PROCESANDO, limpia archivos temporales y transiciona su estado a CANCELADO.",
+    responses={
+        200: {"description": "Procesamiento cancelado exitosamente"},
+        404: {"description": "Reunión no encontrada"},
+        500: {"description": "Error interno del servidor"}
+    }
+)
+async def cancelar_reunion(id_reunion: str):
+    registro = reunion_service.cancelar_reunion(id_reunion)
+    if not registro:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Reunión '{id_reunion}' no encontrada"
+        )
+    data = ReunionEstadoResponse(
+        id_reunion=registro["id_reunion"],
+        nombre_archivo=registro["nombre_archivo"],
+        estado=registro["estado"],
+        progreso_estimado=registro.get("progreso_estimado"),
+        fecha_registro=registro["fecha_registro"],
+        fecha_actualizacion=registro["fecha_actualizacion"],
+        error_detalle=registro.get("error_detalle")
+    )
+    return ResponseUtil.success(data=data, message="Procesamiento cancelado exitosamente")
+
 @router.get(
     "/{id_reunion}/resultados",
     response_model=ResponseDto[ReunionDetalleResponse],

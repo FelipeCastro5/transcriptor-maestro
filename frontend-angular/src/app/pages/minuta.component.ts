@@ -23,9 +23,17 @@ import { TablaAcuerdosComponent } from '../shared/tabla-acuerdos.component';
               {{ d.id_reunion }} · Estrategia {{ d.estrategia_utilizada ?? '—' }} · {{ d.tiempo_procesamiento_seg ?? '—' }} s de cómputo
             </p>
           </div>
-          <span [class]="'badge ' + d.estado">{{ d.estado }}</span>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            @if (d.estado === 'EN_COLA' || d.estado === 'PROCESANDO') {
+              <button class="danger mini" [disabled]="cancelando()" (click)="detener()">
+                {{ cancelando() ? 'Cancelando…' : '⏹ Detener procesamiento' }}
+              </button>
+            }
+            <span [class]="'badge ' + d.estado">{{ d.estado }}</span>
+          </div>
         </div>
-        @if (d.error_detalle) { <p class="error">{{ d.error_detalle }}</p> }
+        @if (d.error_detalle && d.estado !== 'CANCELADO') { <p class="error">{{ d.error_detalle }}</p> }
+        @if (d.estado === 'CANCELADO') { <p class="muted">{{ d.progreso_estimado || 'Procesamiento cancelado por el usuario.' }}</p> }
       </section>
 
       <section class="card highlight">
@@ -51,6 +59,7 @@ export class MinutaComponent implements OnInit {
   private api = inject(ApiService);
   id = input.required<string>(); // viene del parámetro de ruta :id
   det = signal<ReunionDetalle | null>(null);
+  cancelando = signal(false);
   error = signal('');
 
   ngOnInit() {
@@ -61,6 +70,21 @@ export class MinutaComponent implements OnInit {
     this.api.resultadosReunion(this.id()).subscribe({
       next: (r) => this.det.set(r.data),
       error: (e: Error) => this.error.set(e.message),
+    });
+  }
+
+  detener() {
+    if (this.cancelando()) return;
+    this.cancelando.set(true);
+    this.api.cancelarReunion(this.id()).subscribe({
+      next: () => {
+        this.cancelando.set(false);
+        this.cargar();
+      },
+      error: (e: Error) => {
+        this.cancelando.set(false);
+        this.error.set(e.message);
+      },
     });
   }
 }

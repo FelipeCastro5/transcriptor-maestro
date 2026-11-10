@@ -5,7 +5,7 @@ export interface ResponseDto<T> {
   data: T;
 }
 
-export type EstadoReunion = 'EN_COLA' | 'PROCESANDO' | 'COMPLETADO' | 'FALLIDO';
+export type EstadoReunion = 'EN_COLA' | 'PROCESANDO' | 'COMPLETADO' | 'FALLIDO' | 'CANCELADO';
 export type EstadoAcuerdo = 'pendiente' | 'completado' | 'atrasado';
 export const ESTADOS_ACUERDO: EstadoAcuerdo[] = ['pendiente', 'completado', 'atrasado'];
 

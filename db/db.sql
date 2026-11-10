@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS reuniones (
     ruta_audio VARCHAR(500) NOT NULL,
     tamano_mb DOUBLE PRECISION,
     duracion_seg DOUBLE PRECISION,
-    estado_proceso VARCHAR(20) NOT NULL DEFAULT 'EN_COLA' CHECK (estado_proceso IN ('EN_COLA', 'PROCESANDO', 'COMPLETADO', 'FALLIDO')),
+    estado_proceso VARCHAR(20) NOT NULL DEFAULT 'EN_COLA' CHECK (estado_proceso IN ('EN_COLA', 'PROCESANDO', 'COMPLETADO', 'FALLIDO', 'CANCELADO')),
     estrategia_ia INTEGER DEFAULT 5,
     transcripcion_texto TEXT,
     resumen_ejecutivo TEXT,

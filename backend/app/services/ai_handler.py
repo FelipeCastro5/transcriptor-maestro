@@ -14,6 +14,10 @@ from app.schemas.acuerdo import EstadoAcuerdo
 from app.services.vacas import vacas_manager
 from app.core.prompt_registry import prompt_registry
 
+class ProcesamientoCanceladoError(Exception):
+    """Excepción lanzada cuando el procesamiento es cancelado manualmente por el usuario."""
+    pass
+
 class AIHandler:
     """
     Handler Dinámico de Inteligencia Artificial con Tolerancia a Fallos (VACAS + Perceptrón).
@@ -24,6 +28,19 @@ class AIHandler:
       - Estrategia 4: Prompt Engineering Avanzado (lenguaje informal) + Dashboard MD.
       - Estrategia 5: Híbrido Maduro (Chunking 30s + DeepSeek Dual Call con conmutación VACAS).
     """
+
+    def __init__(self):
+        self.reuniones_canceladas: set[str] = set()
+
+    def marcar_cancelada(self, id_reunion: str) -> None:
+        self.reuniones_canceladas.add(id_reunion)
+
+    def limpiar_cancelacion(self, id_reunion: str) -> None:
+        self.reuniones_canceladas.discard(id_reunion)
+
+    def verificar_cancelacion(self, id_reunion: str) -> None:
+        if id_reunion in self.reuniones_canceladas:
+            raise ProcesamientoCanceladoError(f"Procesamiento de la reunión '{id_reunion}' detenido por el usuario.")
 
     # =========================================================================
     # 1. ETAPA DE TRANSCRIPCIÓN (ASR: Audio -> Texto)
@@ -292,9 +309,13 @@ Responde únicamente con el párrafo del resumen ejecutivo."""
         inicio = time.time()
         print(f"[AIHandler] Procesando reunion {id_reunion} con Estrategia {estrategia.value}, Whisper {modelo_whisper} (Consenso Dual={modo_consenso})")
 
+        self.verificar_cancelacion(id_reunion)
+
         # 1. Transcripción (con Chunking de 30s en estrategias 2 y 5)
         usar_chunking = estrategia in [EstrategiaIA.ESTRATEGIA_2_HUGGINGFACE_OPEN, EstrategiaIA.ESTRATEGIA_5_HIBRIDO_MADURO]
         transcripcion = self.transcribir_audio(ruta_audio, chunking=usar_chunking, modelo_whisper=modelo_whisper)
+
+        self.verificar_cancelacion(id_reunion)
 
         # Guardar transcripción en storage/salidas
         ruta_txt = settings.full_output_path / f"{id_reunion}_transcripcion.txt"
@@ -309,6 +330,8 @@ Responde únicamente con el párrafo del resumen ejecutivo."""
                 transcripcion, estrategia, id_reunion, db,
                 llm_preferido=llm_preferido, modelo_llm=modelo_llm, modo_consenso=modo_consenso
             )
+
+        self.verificar_cancelacion(id_reunion)
 
         # Dar formato estructurado a cada acuerdo
         acuerdos_formateados = []
@@ -331,6 +354,8 @@ Responde únicamente con el párrafo del resumen ejecutivo."""
             )
         else:
             resumen_ejecutivo = f"Procesamiento concluido con {len(acuerdos_formateados)} tareas detectadas bajo estrategia {estrategia.name}."
+
+        self.verificar_cancelacion(id_reunion)
 
         # 4. Exportar Cuadro de Mando en Markdown
         self.generar_reporte_markdown(id_reunion, nombre_archivo, resumen_ejecutivo, acuerdos_formateados)
