@@ -113,32 +113,16 @@ flowchart TD
 
 ## 4. Evaluación Semántica: Extracción de Compromisos vs. tareas-organizadas.md
 
-El estándar formal de acuerdos de `tareas-organizadas.md` exige la extracción rigurosa de 3 compromisos operativos obligatorios con asignaciones individuales e inamovibles:
+El estándar formal de acuerdos de `tareas-organizadas.md` exige la extracción rigurosa de 3 compromisos operativos obligatorios con asignaciones individuales e inamovibles. A continuación se presenta el contraste directo entre el Patrón de Oro y lo extraído por cada variante de Whisper:
 
-```carousel
-### Ground Truth: 3 Compromisos de Cierre
-1. **Alejandro Martínez (Alejo):** Integrar panel Auditoría MLOps en Angular (telemetría VACAS, Chaos, WER vivo, Drift, Prompts MD5) -> **Jueves 12 Nov, 6:00 pm (18:00)**
-2. **Daniel Felipe Castro (Felipe):** Endpoint y botón de cancelación en backend/UI + Informe técnico en APA 7 (Word/PDF) -> **Viernes 13 Nov, 2:00 pm (14:00)**
-3. **Bryan Betancourt (Bryan):** Guion narrativo 3 cortes + Diapositivas finales de sustentación -> **Sábado 14 Nov, 11:00 am**
-<!-- slide -->
-### Whisper Small (MEET-441821BF)
-- **Compromiso 1:** ❌ Tarea MLOps asignada a Daniel Castro (Felipe). Fecha `None`.
-- **Compromiso 2:** ⚠️ Endpoint de cancelación y APA 7 divididos como tareas huérfanas en `Equipo General`.
-- **Compromiso 3:** ❌ Tarea de Bryan perdida; absorbida como "combinar panel interactivo" y asignada erróneamente a Felipe.
-- **Veredicto:** Falla de trazabilidad; inviable para control de proyectos.
-<!-- slide -->
-### Whisper Medium (MEET-7556833C)
-- **Compromiso 1:** ✅ Alejandro Martínez (`AC-FEDEAF` y `AC-935C4B`) con panel MLOps y telemetría VACAS.
-- **Compromiso 2:** ✅ Daniel Castro (`AC-4040C3`) con endpoint de cancelación e informe APA 7 para el **Viernes 13 de noviembre, 2:00 PM**.
-- **Compromiso 3:** ✅ Bryan Betancourt (`AC-932B0E` / `AC-AFF86B`) con fecha **Sábado 14 de noviembre, 11:00 AM**.
-- **Veredicto:** 100% de cobertura de compromisos y fechas recuperadas.
-<!-- slide -->
-### Whisper Large (MEET-18F4FE34)
-- **Compromiso 1:** ✅ Alejandro Martínez (`AC-4721C6`) completo con telemetría VACAS y fecha exacta **Jueves 12 de noviembre a las 6 de la tarde**.
-- **Compromiso 2:** ✅ Daniel Castro (`AC-53F8EA` y `AC-A485E3`) con cancelación e informe APA 7 para el **Viernes 13 de noviembre a las 2 de la tarde**.
-- **Compromiso 3:** ✅ Bryan Betancourt (`AC-B377E5`) con diapositivas y guion narrativo para el **Sábado 14 de noviembre a las 11 de la mañana**.
-- **Veredicto:** Fidelidad canónica perfecta coincidente con el Ground Truth.
-```
+### 📋 Tabla Comparativa de Extracción: Ground Truth vs. Modelos
+
+| Compromiso Canónico (Ground Truth) | Whisper Small (`MEET-441821BF`) | Whisper Medium (`MEET-7556833C`) | Whisper Large (`MEET-18F4FE34`) |
+| :--- | :--- | :--- | :--- |
+| **1. Alejandro Martínez (Alejo)**<br>• *Tarea:* Integrar panel de Auditoría MLOps en Angular (telemetría VACAS, Chaos Testing, calibración WER y Prompt Registry MD5).<br>• *Fecha:* **Jueves 12 Nov, 6:00 pm** | ❌ **Fallido / Desalineado**<br>• Tarea MLOps atribuida por error a **Daniel Castro** (`Felipe`).<br>• Fecha no detectada (`None`).<br>• Texto crudo cortado. | ✅ **Exitoso / Alta Fidelidad**<br>• Responsable: **Alejandro Martínez** (Fuzzy: 0.95).<br>• Detectado en `AC-FEDEAF` y `AC-935C4B`.<br>• Fecha y telemetría VACAS identificadas. | ✅ **Exitoso / Máxima Fidelidad**<br>• Responsable: **Alejandro Martínez** (Fuzzy: 0.95).<br>• Fecha exacta: **Jueves 12 de noviembre a las 6:00 pm**.<br>• Todas las sub-pestañas de MLOps indexadas. |
+| **2. Daniel Felipe Castro (Felipe)**<br>• *Tarea:* Implementar endpoint y botón de cancelación de tareas en backend/UI + estructurar informe técnico formal en APA 7 (Word/PDF).<br>• *Fecha:* **Viernes 13 Nov, 2:00 pm** | ⚠️ **Parcial / Huérfano**<br>• Fragmentó la tarea en acuerdos dispersos.<br>• Asignado al fallback **Equipo General** (Fuzzy: 0.286).<br>• Fecha registrada como *"viernes 13"* sin hora. | ✅ **Exitoso / Preciso**<br>• Responsable: **Daniel Castro** (Fuzzy: 0.95).<br>• Unificó cancelación e informe APA 7 (`AC-4040C3`).<br>• Fecha: **Viernes 13 de noviembre, 2:00 PM**. | ✅ **Exitoso / Detallado**<br>• Responsable: **Daniel Castro** (Fuzzy: 0.95).<br>• Desglosado en `AC-53F8EA` (APA 7) y `AC-A485E3` (Cancelación).<br>• Fecha exacta: **Viernes 13 de noviembre a las 2:00 pm**. |
+| **3. Bryan Betancourt (Bryan)**<br>• *Tarea:* Articular guion narrativo integrando los 3 cortes del proyecto + construir diapositivas ejecutivas de sustentación.<br>• *Fecha:* **Sábado 14 Nov, 11:00 am** | ❌ **Gravemente Distorsionado**<br>• Tarea de guion omitida.<br>• Fusionada erróneamente con *"panel interactivo"* y asignada a **Daniel Castro**.<br>• Fecha detectada pero mal adjudicada. | ✅ **Exitoso / Recuperado**<br>• Responsable: **Bryan Betancourt** (Fuzzy: 0.80) y **Daniel Castro**.<br>• Detectó guion y diapositivas (`AC-AFF86B` y `AC-932B0E`).<br>• Fecha: **Sábado 14 de noviembre, 11:00 AM**. | ✅ **Exitoso / Canónico**<br>• Responsable: **Bryan Betancourt** (Fuzzy: 0.80).<br>• Captura íntegra del guion de los 3 cortes y diapositivas (`AC-B377E5`).<br>• Fecha: **Sábado 14 de noviembre a las 11:00 am**. |
+| **Veredicto de Extracción** | 🔴 **F1-Score: 0.33**<br>Inútil para seguimiento operativo real. | 🟢 **F1-Score: 0.89**<br>100% de compromisos y plazos recuperados. | 🟢 **F1-Score: 0.92**<br>Fidelidad textual prácticamente idéntica al guion. |
 
 ### 4.1. Análisis de Decisiones Arquitectónicas y Tareas Históricas
 Además de los compromisos a futuro, el diálogo evaluaba tareas pasadas y acuerdos de diseño:
@@ -173,13 +157,21 @@ El umbral de decisión calibrado en **$0.75$** demostró ser óptimo:
 
 Uno de los aportes centrales de este proyecto es el análisis de ingeniería del coste de inferencia en entornos de despliegue local. La relación entre tiempo de ejecución y exactitud operativa define la viabilidad del producto en producción:
 
-```mermaid
-xychart-beta
-    title "Comparativa de Tiempos de Cómputo Total (Segundos)"
-    x-axis ["Whisper Small", "Whisper Medium", "Whisper Large"]
-    y-axis "Tiempo de Cómputo (Segundos)" 0 --> 3500
-    bar [444.38, 1428.21, 3098.01]
+```text
+┌─────────────────────────────────────────────────────────────────────────────┐
+│              COMPARATIVA DE TIEMPOS DE CÓMPUTO TOTAL (SEGUNDOS)             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ Whisper Small   [████] 444.38 s (~7.4 min | RTF: 1.12×)                     │
+│ Whisper Medium  [█████████████] 1,428.21 s (~23.8 min | RTF: 3.58×)         │
+│ Whisper Large   [████████████████████████████] 3,098.01 s (~51.6 min | 7.78×)│
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
+
+| Variante de Modelo | Tiempo Total (s) | Tiempo ASR (s) | Inferencia LLM (s) | $RTF$ (Ratio Inferencia/Audio) | Cobertura Acuerdos |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **Whisper Small** | **444.38 s** | 436.49 s (98.2%) | 7.89 s (1.8%) | **1.12×** | 33% (Falla grave) |
+| **Whisper Medium** | **1,428.21 s** | 1,418.89 s (99.3%) | 9.32 s (0.7%) | **3.58×** | **100% (Punto Dulce)** |
+| **Whisper Large** | **3,098.01 s** | 3,087.95 s (99.7%) | 10.04 s (0.3%) | **7.78×** | **100% (Inviable en CPU)** |
 
 ### 6.1. Desglose del Cuello de Botella: ASR vs. LLM
 La telemetría extraída de `metadatos_audio` demuestra de forma contundente que **más del 98% del tiempo de cómputo del sistema reside en el modelo ASR (Whisper local en CPU)**, mientras que la inferencia semántica del LLM en la nube es marginal:
@@ -208,3 +200,4 @@ La telemetría extraída de `metadatos_audio` demuestra de forma contundente que
    - **Modelo Definitivo por Defecto:** Configurar `Whisper Medium` como el modelo predeterminado inamovible en la interfaz web de Angular y en la configuración del backend.
    - **Aceleración Futura:** Para despliegues en servidores de producción, compilar el runtime con `faster-whisper` (CTranslate2) o habilitar inferencia por GPU NVIDIA CUDA, lo cual reducirá la latencia de Whisper Medium de 23 minutos a menos de 30 segundos, alcanzando una operación en tiempo real ultra-eficiente.
    - **Validación para Sustentación:** Todos los artefactos probatorios (archivos de base de datos, metadatos JSON, logs de auditoría y capturas) se encuentran consolidados y listos para la sustentación final ante el jurado calificador de la Universidad ECCI.
+
