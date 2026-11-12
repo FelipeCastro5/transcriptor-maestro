@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, UploadFile, File, Query, BackgroundTasks, HTTPException, status
 from app.schemas.reunion import (
     ReunionUploadResponse,
@@ -228,3 +228,26 @@ async def list_reuniones():
     reuniones_raw = reunion_service.listar_reuniones()
     data = [ReunionResumen(**r) for r in reuniones_raw]
     return ResponseUtil.success(data=data, message="Catálogo de reuniones obtenido exitosamente")
+
+@router.delete(
+    "/{id_reunion}",
+    response_model=ResponseDto[Dict[str, Any]],
+    summary="Eliminar una reunión y sus registros asociados en cascada",
+    description="Elimina permanentemente la reunión, sus acuerdos, historial de estados, logs de auditoría IA, alertas asociadas, evaluaciones y archivos temporales en disco.",
+    responses={
+        200: {"description": "Reunión y registros relacionados eliminados exitosamente"},
+        404: {"description": "Reunión no encontrada"},
+        500: {"description": "Error interno del servidor"}
+    }
+)
+async def delete_reunion(id_reunion: str):
+    resultado = reunion_service.eliminar_reunion(id_reunion)
+    if not resultado:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Reunión '{id_reunion}' no encontrada"
+        )
+    return ResponseUtil.success(
+        data=resultado,
+        message=f"Reunión '{id_reunion}' eliminada en cascada ({resultado['acuerdos_eliminados']} acuerdos, {resultado['logs_eliminados']} logs, {resultado['archivos_eliminados']} archivos)"
+    )

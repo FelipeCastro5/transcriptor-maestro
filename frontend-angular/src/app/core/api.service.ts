@@ -31,7 +31,7 @@ export class ApiService {
     return this.handle(this.http.get<ResponseDto<T>>(url, { params }));
   }
 
-  private send<T>(method: 'post' | 'patch', url: string, body: unknown, params?: HttpParams) {
+  private send<T>(method: 'post' | 'patch' | 'delete', url: string, body?: unknown, params?: HttpParams) {
     return this.handle(this.http.request<ResponseDto<T>>(method, url, { body, params }));
   }
 
@@ -61,6 +61,10 @@ export class ApiService {
 
   listarReuniones() {
     return this.get<ReunionResumen[]>(`${this.api}/reuniones/`);
+  }
+
+  eliminarReunion(id: string) {
+    return this.send<Record<string, unknown>>('delete', `${this.api}/reuniones/${id}`);
   }
 
   // Acuerdos

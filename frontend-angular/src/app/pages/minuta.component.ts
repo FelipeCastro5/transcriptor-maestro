@@ -1,6 +1,6 @@
 import { Component, OnInit, inject, input, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { ApiService } from '../core/api.service';
 import { ReunionDetalle } from '../core/models';
 import { TablaAcuerdosComponent } from '../shared/tabla-acuerdos.component';
@@ -37,6 +37,13 @@ import { TablaAcuerdosComponent } from '../shared/tabla-acuerdos.component';
               </button>
             }
             <span [class]="'badge ' + d.estado">{{ d.estado }}</span>
+            <button
+              class="danger mini"
+              [disabled]="eliminando()"
+              (click)="eliminar()"
+              title="Eliminar esta reunión y todos sus registros asociados en cascada">
+              {{ eliminando() ? 'Eliminando…' : '🗑️ Eliminar' }}
+            </button>
           </div>
         </div>
         @if (d.error_detalle && d.estado !== 'CANCELADO') { <p class="error">{{ d.error_detalle }}</p> }
@@ -290,10 +297,12 @@ import { TablaAcuerdosComponent } from '../shared/tabla-acuerdos.component';
 })
 export class MinutaComponent implements OnInit {
   private api = inject(ApiService);
+  private router = inject(Router);
   id = input.required<string>(); // viene del parámetro de ruta :id
   det = signal<ReunionDetalle | null>(null);
   tabActiva = signal<'minuta' | 'metadata'>('minuta');
   cancelando = signal(false);
+  eliminando = signal(false);
   error = signal('');
 
   ngOnInit() {
@@ -331,6 +340,28 @@ export class MinutaComponent implements OnInit {
       },
       error: (e: Error) => {
         this.cancelando.set(false);
+        this.error.set(e.message);
+      },
+    });
+  }
+
+  eliminar() {
+    const d = this.det();
+    if (!d || this.eliminando()) return;
+    const ok = confirm(
+      `¿Eliminar permanentemente "${d.nombre_archivo}" (${d.id_reunion})?\n\n` +
+      `Esta acción eliminará en cascada la reunión, sus ${d.acuerdos.length} acuerdo(s), historial, logs de auditoría IA, alertas y archivos temporales.`
+    );
+    if (!ok) return;
+
+    this.eliminando.set(true);
+    this.api.eliminarReunion(d.id_reunion).subscribe({
+      next: () => {
+        this.eliminando.set(false);
+        this.router.navigate(['/historial']);
+      },
+      error: (e: Error) => {
+        this.eliminando.set(false);
         this.error.set(e.message);
       },
     });

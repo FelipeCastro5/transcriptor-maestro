@@ -12,7 +12,9 @@ from app.core.config import settings
 from app.db.session import SessionLocal, init_db
 from app.db.models.reunion import Reunion
 from app.db.models.acuerdo import Acuerdo
+from app.db.models.alerta import AlertaSistema
 from app.db.models.auditoria import AuditoriaIALog
+from app.db.models.evaluacion import EvaluacionCalibracion
 from app.db.models.responsable import Responsable
 from app.db.models.historial import HistorialEstado
 from app.schemas.reunion import EstadoReunion, EstrategiaIA
@@ -230,8 +232,12 @@ class ReunionService:
                 modo_consenso=modo_consenso
             )
 
-            # Verificar si el usuario canceló mientras corría el modelo
-            db.refresh(reunion)
+            # Verificar si el usuario canceló o eliminó la reunión mientras corría el modelo
+            db.expire_all()
+            reunion = db.query(Reunion).filter(Reunion.id == id_reunion).first()
+            if not reunion:
+                print(f"[DELETE] Reunión {id_reunion} fue eliminada durante el procesamiento. Abortando guardado.")
+                return
             if reunion.estado_proceso == EstadoReunion.CANCELADO.value or id_reunion in ai_handler.reuniones_canceladas:
                 raise ProcesamientoCanceladoError(f"Procesamiento de la reunión '{id_reunion}' detenido por el usuario.")
 
@@ -407,6 +413,102 @@ class ReunionService:
             db.rollback()
             print(f"[ERROR] Error al cancelar reunión {id_reunion}: {e}")
             raise HTTPException(status_code=500, detail=f"Error al cancelar la reunión: {e}")
+        finally:
+            db.close()
+
+    def eliminar_reunion(self, id_reunion: str) -> Optional[dict]:
+        """
+        Elimina en cascada una reunión y todos sus registros dependientes:
+        alertas, evaluaciones de calibración, logs de auditoría IA, historial de estados,
+        acuerdos asociados y archivos temporales/salidas en disco.
+        """
+        ai_handler.marcar_cancelada(id_reunion)
+        db: Session = SessionLocal()
+        try:
+            r = db.query(Reunion).filter(Reunion.id == id_reunion).first()
+            if not r:
+                return None
+
+            nombre_archivo = r.nombre_archivo
+            ruta_audio = r.ruta_audio
+            acuerdo_ids = [
+                row[0] for row in db.query(Acuerdo.id).filter(Acuerdo.reunion_id == id_reunion).all()
+            ]
+
+            alertas_eliminadas = 0
+            if acuerdo_ids:
+                alertas_eliminadas = db.query(AlertaSistema).filter(
+                    (AlertaSistema.reunion_id == id_reunion) | (AlertaSistema.acuerdo_id.in_(acuerdo_ids))
+                ).delete(synchronize_session=False)
+            else:
+                alertas_eliminadas = db.query(AlertaSistema).filter(
+                    AlertaSistema.reunion_id == id_reunion
+                ).delete(synchronize_session=False)
+
+            evaluaciones_eliminadas = db.query(EvaluacionCalibracion).filter(
+                EvaluacionCalibracion.reunion_id == id_reunion
+            ).delete(synchronize_session=False)
+
+            logs_eliminados = db.query(AuditoriaIALog).filter(
+                AuditoriaIALog.reunion_id == id_reunion
+            ).delete(synchronize_session=False)
+
+            if acuerdo_ids:
+                db.query(HistorialEstado).filter(
+                    (HistorialEstado.reunion_origen_id == id_reunion) | (HistorialEstado.acuerdo_id.in_(acuerdo_ids))
+                ).delete(synchronize_session=False)
+                db.query(Acuerdo).filter(
+                    Acuerdo.acuerdo_origen_id.in_(acuerdo_ids)
+                ).update({"acuerdo_origen_id": None}, synchronize_session=False)
+            else:
+                db.query(HistorialEstado).filter(
+                    HistorialEstado.reunion_origen_id == id_reunion
+                ).delete(synchronize_session=False)
+
+            acuerdos_eliminados = db.query(Acuerdo).filter(
+                Acuerdo.reunion_id == id_reunion
+            ).delete(synchronize_session=False)
+
+            db.query(Reunion).filter(Reunion.id == id_reunion).delete(synchronize_session=False)
+            db.commit()
+
+            archivos_eliminados = 0
+            try:
+                res_storage = storage_service.limpiar_archivos_reunion(id_reunion)
+                archivos_lista = res_storage.get("archivos_eliminados", [])
+                archivos_eliminados = len(archivos_lista) if isinstance(archivos_lista, list) else int(archivos_lista or 0)
+            except Exception as e_clean:
+                print(f"[STORAGE-WARN] No se pudieron limpiar archivos de {id_reunion}: {e_clean}")
+
+            if ruta_audio:
+                try:
+                    p_audio = Path(ruta_audio)
+                    if p_audio.exists() and p_audio.is_file():
+                        p_audio.unlink(missing_ok=True)
+                        archivos_eliminados += 1
+                except Exception:
+                    pass
+
+            print(
+                f"[DELETE-CASCADE] Reunión {id_reunion} eliminada: "
+                f"{acuerdos_eliminados} acuerdos, {logs_eliminados} logs, "
+                f"{alertas_eliminadas} alertas, {evaluaciones_eliminadas} evaluaciones, "
+                f"{archivos_eliminados} archivos."
+            )
+
+            return {
+                "id_reunion": id_reunion,
+                "nombre_archivo": nombre_archivo,
+                "acuerdos_eliminados": acuerdos_eliminados,
+                "logs_eliminados": logs_eliminados,
+                "alertas_eliminadas": alertas_eliminadas,
+                "evaluaciones_eliminadas": evaluaciones_eliminadas,
+                "archivos_eliminados": archivos_eliminados
+            }
+        except Exception as e:
+            db.rollback()
+            print(f"[ERROR] Error eliminando reunión en cascada {id_reunion}: {e}")
+            raise HTTPException(status_code=500, detail=f"Error eliminando reunión en cascada: {e}")
         finally:
             db.close()
 
