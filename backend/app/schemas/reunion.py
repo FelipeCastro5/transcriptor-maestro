@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import Enum
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field
 from app.schemas.acuerdo import AcuerdoResponse
 
@@ -45,6 +45,8 @@ class ReunionResumen(BaseModel):
 class ReunionDetalleResponse(BaseModel):
     id_reunion: str
     nombre_archivo: str
+    tamano_mb: Optional[float] = None
+    duracion_segundos: Optional[float] = None
     estado: EstadoReunion
     progreso_estimado: Optional[str] = None
     estrategia_utilizada: Optional[EstrategiaIA] = None
@@ -52,6 +54,8 @@ class ReunionDetalleResponse(BaseModel):
     transcripcion: Optional[str] = None
     resumen_ejecutivo: Optional[str] = None
     acuerdos: List[AcuerdoResponse] = Field(default_factory=list)
+    metadatos_audio: Dict[str, Any] = Field(default_factory=dict)
+    auditoria_logs: List[Dict[str, Any]] = Field(default_factory=list)
     fecha_registro: datetime
     fecha_actualizacion: datetime
     error_detalle: Optional[str] = None

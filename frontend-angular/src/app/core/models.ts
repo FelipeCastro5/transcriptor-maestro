@@ -50,12 +50,58 @@ export interface Acuerdo {
   fecha_creacion: string;
 }
 
+export interface MetadatosReunion {
+  proyecto_id?: string;
+  archivo?: {
+    nombre_original?: string;
+    extension?: string;
+    tamano_bytes?: number;
+    tamano_mb?: number | null;
+    duracion_audio_seg?: number | null;
+    tipo_entrada?: string;
+  };
+  tiempos?: {
+    fecha_carga_utc?: string | null;
+    fecha_inicio_proceso_utc?: string | null;
+    fecha_fin_proceso_utc?: string | null;
+    tiempo_total_seg?: number | null;
+    tiempo_asr_seg?: number | null;
+    tiempo_llm_seg?: number | null;
+  };
+  configuracion?: {
+    estrategia?: number;
+    estrategia_nombre?: string;
+    modelo_whisper?: string;
+    llm_preferido?: string;
+    modelo_llm?: string;
+    modo_consenso?: boolean;
+    chunking_habilitado?: boolean;
+    procesar_inmediato?: boolean;
+    prompt_utilizado?: {
+      id: string;
+      version: string;
+      nombre: string;
+      hash_md5: string;
+    } | null;
+  };
+  resultados?: {
+    total_acuerdos_extraidos?: number;
+    cierres_historicos_detectados?: number;
+    transcripcion_caracteres?: number;
+    transcripcion_palabras?: number;
+  };
+}
+
 export interface ReunionDetalle extends ReunionEstado {
+  tamano_mb: number | null;
+  duracion_segundos: number | null;
   estrategia_utilizada: number | null;
   tiempo_procesamiento_seg: number | null;
   transcripcion: string | null;
   resumen_ejecutivo: string | null;
   acuerdos: Acuerdo[];
+  metadatos_audio: MetadatosReunion;
+  auditoria_logs: LogIA[];
 }
 
 export interface Responsable {

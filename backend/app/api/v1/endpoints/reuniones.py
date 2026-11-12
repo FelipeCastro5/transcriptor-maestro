@@ -9,7 +9,7 @@ from app.schemas.reunion import (
     EstrategiaIA
 )
 from app.schemas.response import ResponseDto, ResponseUtil
-from app.services.reunion_service import reunion_service
+from app.services.reunion_service import reunion_service, NOMBRES_ESTRATEGIAS
 
 router = APIRouter()
 
@@ -37,7 +37,18 @@ async def upload_audio(
     modelo_llm: str = Query("deepseek-chat", description="Modelo de LLM específico (ej. deepseek-chat, gpt-4o-mini)"),
     modo_consenso: bool = Query(False, description="Activa el modo de consenso dual (DeepSeek + OpenAI concurrente)")
 ):
-    registro = reunion_service.guardar_audio(file)
+    es_txt = (file.filename or "").lower().endswith(".txt")
+    config_inicial = {
+        "estrategia": estrategia.value,
+        "estrategia_nombre": NOMBRES_ESTRATEGIAS.get(estrategia.value, f"Estrategia {estrategia.value}"),
+        "modelo_whisper": "N/A (Archivo .txt)" if es_txt else modelo_whisper,
+        "llm_preferido": "reglas-offline" if estrategia == EstrategiaIA.ESTRATEGIA_1_REGLAS_OFFLINE else llm_preferido,
+        "modelo_llm": "Regex / SpaCy Offline" if estrategia == EstrategiaIA.ESTRATEGIA_1_REGLAS_OFFLINE else modelo_llm,
+        "modo_consenso": modo_consenso,
+        "chunking_habilitado": False if es_txt else estrategia in [EstrategiaIA.ESTRATEGIA_2_HUGGINGFACE_OPEN, EstrategiaIA.ESTRATEGIA_5_HIBRIDO_MADURO],
+        "procesar_inmediato": procesar_inmediato
+    }
+    registro = reunion_service.guardar_audio(file, config_inicial=config_inicial)
     id_reunion = registro["id_reunion"]
 
     if procesar_inmediato:

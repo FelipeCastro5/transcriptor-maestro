@@ -1,3 +1,4 @@
+import copy
 import shutil
 import uuid
 from datetime import datetime
@@ -5,11 +6,13 @@ from pathlib import Path
 from typing import Dict, Optional, List, Any
 from fastapi import UploadFile, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 
 from app.core.config import settings
 from app.db.session import SessionLocal, init_db
 from app.db.models.reunion import Reunion
 from app.db.models.acuerdo import Acuerdo
+from app.db.models.auditoria import AuditoriaIALog
 from app.db.models.responsable import Responsable
 from app.db.models.historial import HistorialEstado
 from app.schemas.reunion import EstadoReunion, EstrategiaIA
@@ -19,11 +22,66 @@ from app.services.matching import fuzzy_matcher
 from app.services.storage_service import storage_service
 from app.services.alert_service import alert_service
 
+NOMBRES_ESTRATEGIAS = {
+    1: "1 · Reglas offline (Regex / sin LLM)",
+    2: "2 · Chunking 30s Hugging Face",
+    3: "3 · Whisper + prompt elemental",
+    4: "4 · Prompt avanzado (lenguaje informal)",
+    5: "5 · Híbrido maduro con failover VACAS",
+}
+
 class ReunionService:
     def __init__(self):
         init_db()
 
-    def guardar_audio(self, file: UploadFile, proyecto_id: str = "PROJ-DEFAULT") -> dict:
+    def _obtener_duracion_audio_seg(self, ruta_archivo: Path) -> Optional[float]:
+        """Intenta calcular la duración real del audio en segundos sin fallar si no hay códec."""
+        if ruta_archivo.suffix.lower() == ".txt":
+            return None
+        try:
+            import soundfile as sf
+            info = sf.info(str(ruta_archivo))
+            if info and info.duration:
+                return round(float(info.duration), 2)
+        except Exception:
+            pass
+        try:
+            import re
+            import subprocess
+            import imageio_ffmpeg
+            ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+            proc = subprocess.run(
+                [ffmpeg_exe, "-i", str(ruta_archivo)],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            match = re.search(r"Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)", proc.stderr or "")
+            if match:
+                horas, mins, segs = float(match.group(1)), float(match.group(2)), float(match.group(3))
+                return round(horas * 3600 + mins * 60 + segs, 2)
+        except Exception:
+            pass
+        return None
+
+    def _actualizar_metadata_reunion(self, reunion: Reunion, seccion: str, valores: Dict[str, Any]) -> None:
+        """Actualiza de forma segura una sub-sección del JSON metadatos_audio en SQLAlchemy."""
+        meta = copy.deepcopy(reunion.metadatos_audio) if isinstance(reunion.metadatos_audio, dict) else {}
+        actual = meta.get(seccion, {})
+        if isinstance(actual, dict):
+            actual.update(valores)
+        else:
+            actual = valores
+        meta[seccion] = actual
+        reunion.metadatos_audio = meta
+        flag_modified(reunion, "metadatos_audio")
+
+    def guardar_audio(
+        self,
+        file: UploadFile,
+        proyecto_id: str = "PROJ-DEFAULT",
+        config_inicial: Optional[Dict[str, Any]] = None
+    ) -> dict:
         nombre_original = file.filename or "audio_desconocido"
         extension = Path(nombre_original).suffix.lower()
 
@@ -56,8 +114,30 @@ class ReunionService:
                 detail=f"El archivo supera el límite de {settings.MAX_AUDIO_SIZE_MB}MB"
             )
 
+        duracion_seg = self._obtener_duracion_audio_seg(destino)
         ahora = datetime.utcnow()
-        
+
+        estrategia_val = (config_inicial or {}).get("estrategia", 5)
+        metadatos_iniciales = {
+            "archivo": {
+                "nombre_original": nombre_original,
+                "extension": extension,
+                "tamano_bytes": tamano_bytes,
+                "tamano_mb": tamano_mb,
+                "duracion_audio_seg": duracion_seg,
+                "tipo_entrada": "Texto plano (.txt)" if extension == ".txt" else f"Audio ({extension.lstrip('.').upper()})"
+            },
+            "tiempos": {
+                "fecha_carga_utc": ahora.isoformat() + "Z",
+                "fecha_inicio_proceso_utc": None,
+                "fecha_fin_proceso_utc": None,
+                "tiempo_total_seg": None,
+                "tiempo_asr_seg": None,
+                "tiempo_llm_seg": None
+            },
+            "configuracion": config_inicial or {}
+        }
+
         db: Session = SessionLocal()
         try:
             nueva_reunion = Reunion(
@@ -66,8 +146,11 @@ class ReunionService:
                 nombre_archivo=nombre_original,
                 ruta_audio=str(destino),
                 tamano_mb=tamano_mb,
+                duracion_seg=duracion_seg,
+                estrategia_ia=estrategia_val,
                 estado_proceso=EstadoReunion.EN_COLA.value,
                 progreso_estimado="Audio recibido y encolado.",
+                metadatos_audio=metadatos_iniciales,
                 creado_en=ahora,
                 actualizado_en=ahora
             )
@@ -101,6 +184,7 @@ class ReunionService:
         modo_consenso: bool = False
     ):
         db: Session = SessionLocal()
+        inicio_proceso = datetime.utcnow()
         try:
             reunion = db.query(Reunion).filter(Reunion.id == id_reunion).first()
             if not reunion:
@@ -110,10 +194,27 @@ class ReunionService:
                 print(f"[CANCEL] Reunión {id_reunion} ya estaba marcada como CANCELADA antes de iniciar.")
                 return
 
+            es_txt = Path(reunion.nombre_archivo or "").suffix.lower() == ".txt"
+            usar_chunking = estrategia in [EstrategiaIA.ESTRATEGIA_2_HUGGINGFACE_OPEN, EstrategiaIA.ESTRATEGIA_5_HIBRIDO_MADURO]
             reunion.estado_proceso = EstadoReunion.PROCESANDO.value
+            reunion.estrategia_ia = estrategia.value
             consenso_txt = " con Consenso Dual" if modo_consenso else ""
             reunion.progreso_estimado = f"Transcribiendo y analizando con Estrategia {estrategia.value} (Whisper {modelo_whisper}{consenso_txt})..."
-            reunion.actualizado_en = datetime.utcnow()
+            reunion.actualizado_en = inicio_proceso
+
+            self._actualizar_metadata_reunion(reunion, "tiempos", {
+                "fecha_carga_utc": (reunion.creado_en or inicio_proceso).isoformat() + "Z",
+                "fecha_inicio_proceso_utc": inicio_proceso.isoformat() + "Z",
+            })
+            self._actualizar_metadata_reunion(reunion, "configuracion", {
+                "estrategia": estrategia.value,
+                "estrategia_nombre": NOMBRES_ESTRATEGIAS.get(estrategia.value, f"Estrategia {estrategia.value}"),
+                "modelo_whisper": "N/A (Archivo .txt)" if es_txt else modelo_whisper,
+                "llm_preferido": "reglas-offline" if estrategia == EstrategiaIA.ESTRATEGIA_1_REGLAS_OFFLINE else llm_preferido,
+                "modelo_llm": "Regex / SpaCy Offline" if estrategia == EstrategiaIA.ESTRATEGIA_1_REGLAS_OFFLINE else modelo_llm,
+                "modo_consenso": modo_consenso,
+                "chunking_habilitado": False if es_txt else usar_chunking,
+            })
             db.commit()
 
             # 1. Ejecución del Handler de IA (Transcripción + LLM con auditoría del Perceptrón)
@@ -186,13 +287,31 @@ class ReunionService:
                     db.add(historial)
                     print(f"[HISTORIAL] Acuerdo previo {ac_previo.id} ('{ac_previo.tarea_desc}') actualizado a COMPLETADO.")
 
+            fin_proceso = datetime.utcnow()
             reunion.estado_proceso = EstadoReunion.COMPLETADO.value
             reunion.progreso_estimado = "Procesamiento finalizado con éxito."
             reunion.transcripcion_texto = resultado["transcripcion"]
             reunion.resumen_ejecutivo = resultado["resumen_ejecutivo"]
             reunion.tiempo_procesamiento_seg = resultado["tiempo_procesamiento_seg"]
             reunion.estrategia_ia = estrategia.value
-            reunion.actualizado_en = datetime.utcnow()
+            reunion.actualizado_en = fin_proceso
+
+            self._actualizar_metadata_reunion(reunion, "tiempos", {
+                "fecha_fin_proceso_utc": fin_proceso.isoformat() + "Z",
+                "tiempo_total_seg": resultado["tiempo_procesamiento_seg"],
+                "tiempo_asr_seg": resultado.get("tiempo_asr_seg"),
+                "tiempo_llm_seg": resultado.get("tiempo_llm_seg"),
+            })
+            self._actualizar_metadata_reunion(reunion, "configuracion", {
+                "prompt_utilizado": resultado.get("prompt_utilizado"),
+                "chunking_habilitado": False if es_txt else resultado.get("usar_chunking", usar_chunking),
+            })
+            self._actualizar_metadata_reunion(reunion, "resultados", {
+                "total_acuerdos_extraidos": len(resultado["acuerdos"]),
+                "cierres_historicos_detectados": len(cierres_detectados),
+                "transcripcion_caracteres": len(resultado["transcripcion"] or ""),
+                "transcripcion_palabras": len((resultado["transcripcion"] or "").split()),
+            })
             db.commit()
 
             # 4. Limpieza automática del almacenamiento temporal tras éxito
@@ -203,12 +322,19 @@ class ReunionService:
 
         except ProcesamientoCanceladoError as e_cancel:
             db.rollback()
+            fin_cancel = datetime.utcnow()
             reunion = db.query(Reunion).filter(Reunion.id == id_reunion).first()
             if reunion:
+                duracion_parcial = round((fin_cancel - inicio_proceso).total_seconds(), 2)
                 reunion.estado_proceso = EstadoReunion.CANCELADO.value
                 reunion.progreso_estimado = "Procesamiento detenido manualmente por el usuario."
                 reunion.error_detalle = str(e_cancel)
-                reunion.actualizado_en = datetime.utcnow()
+                reunion.tiempo_procesamiento_seg = reunion.tiempo_procesamiento_seg or duracion_parcial
+                reunion.actualizado_en = fin_cancel
+                self._actualizar_metadata_reunion(reunion, "tiempos", {
+                    "fecha_fin_proceso_utc": fin_cancel.isoformat() + "Z",
+                    "tiempo_total_seg": reunion.tiempo_procesamiento_seg,
+                })
                 db.commit()
             try:
                 storage_service.limpiar_archivos_reunion(id_reunion)
@@ -217,12 +343,19 @@ class ReunionService:
             print(f"[CANCEL] Reunión {id_reunion} cancelada exitosamente.")
         except Exception as e:
             db.rollback()
+            fin_error = datetime.utcnow()
             reunion = db.query(Reunion).filter(Reunion.id == id_reunion).first()
             if reunion and reunion.estado_proceso != EstadoReunion.CANCELADO.value and id_reunion not in ai_handler.reuniones_canceladas:
+                duracion_parcial = round((fin_error - inicio_proceso).total_seconds(), 2)
                 reunion.estado_proceso = EstadoReunion.FALLIDO.value
                 reunion.progreso_estimado = "Fallo en procesamiento de IA"
                 reunion.error_detalle = str(e)
-                reunion.actualizado_en = datetime.utcnow()
+                reunion.tiempo_procesamiento_seg = reunion.tiempo_procesamiento_seg or duracion_parcial
+                reunion.actualizado_en = fin_error
+                self._actualizar_metadata_reunion(reunion, "tiempos", {
+                    "fecha_fin_proceso_utc": fin_error.isoformat() + "Z",
+                    "tiempo_total_seg": reunion.tiempo_procesamiento_seg,
+                })
                 db.commit()
             print(f"[ERROR] Error procesando reunion {id_reunion}: {e}")
         finally:
@@ -242,10 +375,17 @@ class ReunionService:
                 return None
 
             if r.estado_proceso in [EstadoReunion.EN_COLA.value, EstadoReunion.PROCESANDO.value]:
+                fin_cancel = datetime.utcnow()
+                duracion_parcial = round((fin_cancel - r.creado_en).total_seconds(), 2) if r.creado_en else None
                 r.estado_proceso = EstadoReunion.CANCELADO.value
                 r.progreso_estimado = "Procesamiento detenido manualmente por el usuario."
                 r.error_detalle = "Cancelado por solicitud del usuario."
-                r.actualizado_en = datetime.utcnow()
+                r.tiempo_procesamiento_seg = r.tiempo_procesamiento_seg or duracion_parcial
+                r.actualizado_en = fin_cancel
+                self._actualizar_metadata_reunion(r, "tiempos", {
+                    "fecha_fin_proceso_utc": fin_cancel.isoformat() + "Z",
+                    "tiempo_total_seg": r.tiempo_procesamiento_seg,
+                })
                 db.commit()
                 db.refresh(r)
 
@@ -296,7 +436,13 @@ class ReunionService:
                 return None
 
             acuerdos = db.query(Acuerdo).filter(Acuerdo.reunion_id == id_reunion).all()
-            
+            logs = (
+                db.query(AuditoriaIALog)
+                .filter(AuditoriaIALog.reunion_id == id_reunion)
+                .order_by(AuditoriaIALog.creado_en.asc())
+                .all()
+            )
+
             acuerdos_list = []
             for a in acuerdos:
                 acuerdos_list.append({
@@ -313,16 +459,91 @@ class ReunionService:
                     "fecha_creacion": a.creado_en
                 })
 
+            logs_list = [
+                {
+                    "id": l.id,
+                    "reunion_id": l.reunion_id,
+                    "etapa": l.etapa,
+                    "proveedor": l.proveedor,
+                    "estado_binario": l.estado_binario,
+                    "nivel_error": l.nivel_error,
+                    "latencia_ms": l.latencia_ms,
+                    "conmutacion_vaca": l.conmutacion_vaca,
+                    "creado_en": l.creado_en.isoformat() + "Z" if l.creado_en else None,
+                }
+                for l in logs
+            ]
+
+            # Reconstruir / enriquecer metadatos para soportar tanto reuniones nuevas como previas
+            meta = copy.deepcopy(r.metadatos_audio) if isinstance(r.metadatos_audio, dict) else {}
+            ext = Path(r.nombre_archivo or "").suffix.lower()
+
+            archivo_meta = meta.get("archivo", {})
+            archivo_meta.setdefault("nombre_original", r.nombre_archivo)
+            archivo_meta.setdefault("extension", ext or "desconocida")
+            archivo_meta.setdefault("tamano_mb", r.tamano_mb)
+            archivo_meta.setdefault("duracion_audio_seg", r.duracion_seg)
+            archivo_meta.setdefault(
+                "tipo_entrada",
+                "Texto plano (.txt)" if ext == ".txt" else f"Audio ({ext.lstrip('.').upper()})" if ext else "Audio"
+            )
+
+            tiempos_meta = meta.get("tiempos", {})
+            if r.creado_en and not tiempos_meta.get("fecha_carga_utc"):
+                tiempos_meta["fecha_carga_utc"] = r.creado_en.isoformat() + "Z"
+            if r.actualizado_en and not tiempos_meta.get("fecha_fin_proceso_utc") and r.estado_proceso in [
+                EstadoReunion.COMPLETADO.value, EstadoReunion.FALLIDO.value, EstadoReunion.CANCELADO.value
+            ]:
+                tiempos_meta["fecha_fin_proceso_utc"] = r.actualizado_en.isoformat() + "Z"
+            if r.tiempo_procesamiento_seg is not None and tiempos_meta.get("tiempo_total_seg") is None:
+                tiempos_meta["tiempo_total_seg"] = r.tiempo_procesamiento_seg
+            elif tiempos_meta.get("tiempo_total_seg") is None and r.creado_en and r.actualizado_en and r.estado_proceso in [
+                EstadoReunion.COMPLETADO.value, EstadoReunion.FALLIDO.value, EstadoReunion.CANCELADO.value
+            ]:
+                tiempos_meta["tiempo_total_seg"] = round((r.actualizado_en - r.creado_en).total_seconds(), 2)
+
+            config_meta = meta.get("configuracion", {})
+            est_id = config_meta.get("estrategia") or r.estrategia_ia or 5
+            config_meta.setdefault("estrategia", est_id)
+            config_meta.setdefault("estrategia_nombre", NOMBRES_ESTRATEGIAS.get(est_id, f"Estrategia {est_id}"))
+            if not config_meta.get("modelo_whisper"):
+                config_meta["modelo_whisper"] = "N/A (Archivo .txt)" if ext == ".txt" else "medium (por defecto)"
+            if not config_meta.get("llm_preferido"):
+                if est_id == 1:
+                    config_meta["llm_preferido"] = "reglas-offline"
+                elif logs_list:
+                    config_meta["llm_preferido"] = logs_list[0]["proveedor"]
+                else:
+                    config_meta["llm_preferido"] = "No registrado (ejecución previa)"
+            config_meta.setdefault("modelo_llm", "Regex / SpaCy Offline" if est_id == 1 else "No registrado (ejecución previa)")
+            config_meta.setdefault("modo_consenso", False)
+            config_meta.setdefault("chunking_habilitado", False if ext == ".txt" else est_id in [2, 5])
+
+            resultados_meta = meta.get("resultados", {})
+            resultados_meta.setdefault("total_acuerdos_extraidos", len(acuerdos_list))
+            resultados_meta.setdefault("transcripcion_caracteres", len(r.transcripcion_texto or ""))
+            resultados_meta.setdefault("transcripcion_palabras", len((r.transcripcion_texto or "").split()))
+
+            meta["archivo"] = archivo_meta
+            meta["tiempos"] = tiempos_meta
+            meta["configuracion"] = config_meta
+            meta["resultados"] = resultados_meta
+            meta["proyecto_id"] = r.proyecto_id or "PROJ-DEFAULT"
+
             return {
                 "id_reunion": r.id,
                 "nombre_archivo": r.nombre_archivo,
+                "tamano_mb": r.tamano_mb,
+                "duracion_segundos": r.duracion_seg,
                 "estado": EstadoReunion(r.estado_proceso),
                 "progreso_estimado": r.progreso_estimado,
                 "estrategia_utilizada": EstrategiaIA(r.estrategia_ia) if r.estrategia_ia else None,
-                "tiempo_procesamiento_seg": r.tiempo_procesamiento_seg,
+                "tiempo_procesamiento_seg": r.tiempo_procesamiento_seg or tiempos_meta.get("tiempo_total_seg"),
                 "transcripcion": r.transcripcion_texto,
                 "resumen_ejecutivo": r.resumen_ejecutivo,
                 "acuerdos": acuerdos_list,
+                "metadatos_audio": meta,
+                "auditoria_logs": logs_list,
                 "fecha_registro": r.creado_en,
                 "fecha_actualizacion": r.actualizado_en,
                 "error_detalle": r.error_detalle

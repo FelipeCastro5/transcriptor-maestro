@@ -162,6 +162,13 @@ class AIHandler:
             return match_obj.group(1).strip()
         return texto
 
+    def _obtener_prompt_para_estrategia(self, estrategia: EstrategiaIA):
+        if estrategia == EstrategiaIA.ESTRATEGIA_4_PROMPT_AVANZADO:
+            return prompt_registry.obtener_prompt_por_id("PRM-V2-INFORMAL")
+        elif estrategia == EstrategiaIA.ESTRATEGIA_5_HIBRIDO_MADURO:
+            return prompt_registry.obtener_prompt_por_id("PRM-V3-HIBRIDO")
+        return prompt_registry.obtener_prompt_activo()
+
     def _extraer_acuerdos_llm(
         self,
         texto: str,
@@ -176,12 +183,7 @@ class AIHandler:
         Extracción con LLM integrando contingencia VACAS y auditoría del Perceptrón.
         """
         # Selección del prompt versionado mediante Prompt Registry
-        if estrategia == EstrategiaIA.ESTRATEGIA_4_PROMPT_AVANZADO:
-            reg_prompt = prompt_registry.obtener_prompt_por_id("PRM-V2-INFORMAL")
-        elif estrategia == EstrategiaIA.ESTRATEGIA_5_HIBRIDO_MADURO:
-            reg_prompt = prompt_registry.obtener_prompt_por_id("PRM-V3-HIBRIDO")
-        else:
-            reg_prompt = prompt_registry.obtener_prompt_activo()
+        reg_prompt = self._obtener_prompt_para_estrategia(estrategia)
 
         if reg_prompt:
             prompt = reg_prompt.template_usuario.format(texto=texto)
@@ -312,8 +314,10 @@ Responde únicamente con el párrafo del resumen ejecutivo."""
         self.verificar_cancelacion(id_reunion)
 
         # 1. Transcripción (con Chunking de 30s en estrategias 2 y 5)
+        t_asr_ini = time.time()
         usar_chunking = estrategia in [EstrategiaIA.ESTRATEGIA_2_HUGGINGFACE_OPEN, EstrategiaIA.ESTRATEGIA_5_HIBRIDO_MADURO]
         transcripcion = self.transcribir_audio(ruta_audio, chunking=usar_chunking, modelo_whisper=modelo_whisper)
+        tiempo_asr_seg = round(time.time() - t_asr_ini, 2)
 
         self.verificar_cancelacion(id_reunion)
 
@@ -323,9 +327,19 @@ Responde únicamente con el párrafo del resumen ejecutivo."""
             f.write(transcripcion)
 
         # 2. Extracción de acuerdos protegida por VACAS
+        t_llm_ini = time.time()
+        prompt_utilizado = None
         if estrategia == EstrategiaIA.ESTRATEGIA_1_REGLAS_OFFLINE:
             acuerdos_crudos = self._extraer_reglas_offline(transcripcion)
         else:
+            reg_prompt = self._obtener_prompt_para_estrategia(estrategia)
+            if reg_prompt:
+                prompt_utilizado = {
+                    "id": reg_prompt.id,
+                    "version": reg_prompt.version,
+                    "nombre": reg_prompt.nombre,
+                    "hash_md5": reg_prompt.hash_md5
+                }
             acuerdos_crudos = self._extraer_acuerdos_llm(
                 transcripcion, estrategia, id_reunion, db,
                 llm_preferido=llm_preferido, modelo_llm=modelo_llm, modo_consenso=modo_consenso
@@ -355,6 +369,7 @@ Responde únicamente con el párrafo del resumen ejecutivo."""
         else:
             resumen_ejecutivo = f"Procesamiento concluido con {len(acuerdos_formateados)} tareas detectadas bajo estrategia {estrategia.name}."
 
+        tiempo_llm_seg = round(time.time() - t_llm_ini, 2)
         self.verificar_cancelacion(id_reunion)
 
         # 4. Exportar Cuadro de Mando en Markdown
@@ -383,6 +398,10 @@ Responde únicamente con el párrafo del resumen ejecutivo."""
             "resumen_ejecutivo": resumen_ejecutivo,
             "acuerdos": acuerdos_formateados,
             "tiempo_procesamiento_seg": duracion_seg,
+            "tiempo_asr_seg": tiempo_asr_seg,
+            "tiempo_llm_seg": tiempo_llm_seg,
+            "usar_chunking": usar_chunking,
+            "prompt_utilizado": prompt_utilizado,
             "estrategia_utilizada": estrategia
         }
 
