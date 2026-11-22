@@ -166,10 +166,11 @@ jobs:
           echo "sha_short=$SHORT_SHA" >> $GITHUB_OUTPUT
           echo "Short SHA extraido para el contenedor inmutable: $SHORT_SHA"
 
-      - name: Autenticar en AWS mediante OpenID Connect (OIDC)
+      - name: Autenticar en AWS para ECR
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-2
 
       - name: Iniciar sesion en Amazon ECR
