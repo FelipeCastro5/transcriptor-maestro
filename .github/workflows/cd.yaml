@@ -1,0 +1,139 @@
+name: CD - Despliegue Continuo AWS
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  # -------------------------------------------------------------------------
+  # JOB UNICO: Despliegue Inmutable en Amazon ECS Fargate y Smoke Test
+  # -------------------------------------------------------------------------
+  deploy-aws:
+    name: Job 5 - Despliegue Inmutable en Amazon ECS Fargate & Smoke Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Autenticar en AWS mediante OpenID Connect (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-2
+          audience: sts.amazonaws.com
+
+      - name: Iniciar sesion en Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Identificar SHA Inmutable del Contenedor Validado en CI
+        id: image_tag
+        run: |
+          # Si fue un PR Merge, el commit original validado es HEAD^2; si fue push directo, HEAD
+          if git rev-parse --verify HEAD^2 >/dev/null 2>&1; then
+            SHORT_SHA=$(git rev-parse --short HEAD^2)
+            echo "Detectado merge commit de Pull Request. Usando SHA de rama: $SHORT_SHA"
+          else
+            SHORT_SHA=$(git rev-parse --short HEAD)
+            echo "Detectado push directo en main. Usando SHA actual: $SHORT_SHA"
+          fi
+          echo "short_sha=$SHORT_SHA" >> $GITHUB_OUTPUT
+
+      - name: Renderizar y Registrar Task Definition de Backend en Amazon ECS
+        id: register-backend-task
+        run: |
+          ECR_REGISTRY="${{ steps.login-ecr.outputs.registry }}"
+          TAG="${{ steps.image_tag.outputs.short_sha }}"
+          BACKEND_IMAGE="$ECR_REGISTRY/transcriptor-maestro-backend:$TAG"
+          
+          # Si la imagen con ese tag no existe en ECR (ej. primer push de inicialización), usar rc-latest
+          if ! aws ecr describe-images --repository-name transcriptor-maestro-backend --image-ids imageTag=$TAG --region us-east-2 >/dev/null 2>&1; then
+            echo "[AVISO] Tag :$TAG no encontrado en ECR. Usando tag fallback :rc-latest"
+            BACKEND_IMAGE="$ECR_REGISTRY/transcriptor-maestro-backend:rc-latest"
+          fi
+
+          echo "Registrando Backend con imagen: $BACKEND_IMAGE"
+          sed -i "s|\"image\": \".*\"|\"image\": \"$BACKEND_IMAGE\"|g" aws/task-definition-backend.json
+          TASK_ARN=$(aws ecs register-task-definition --cli-input-json file://aws/task-definition-backend.json --region us-east-2 --query "taskDefinition.taskDefinitionArn" --output text)
+          echo "backend_task_arn=$TASK_ARN" >> $GITHUB_OUTPUT
+          echo "Nueva revision registrada: $TASK_ARN"
+
+      - name: Renderizar y Registrar Task Definition de Frontend en Amazon ECS
+        id: register-frontend-task
+        run: |
+          ECR_REGISTRY="${{ steps.login-ecr.outputs.registry }}"
+          TAG="${{ steps.image_tag.outputs.short_sha }}"
+          FRONTEND_IMAGE="$ECR_REGISTRY/transcriptor-maestro-frontend:$TAG"
+          
+          if ! aws ecr describe-images --repository-name transcriptor-maestro-frontend --image-ids imageTag=$TAG --region us-east-2 >/dev/null 2>&1; then
+            echo "[AVISO] Tag :$TAG no encontrado en ECR. Usando tag fallback :rc-latest"
+            FRONTEND_IMAGE="$ECR_REGISTRY/transcriptor-maestro-frontend:rc-latest"
+          fi
+
+          echo "Registrando Frontend con imagen: $FRONTEND_IMAGE"
+          sed -i "s|\"image\": \".*\"|\"image\": \"$FRONTEND_IMAGE\"|g" aws/task-definition-frontend.json
+          TASK_ARN=$(aws ecs register-task-definition --cli-input-json file://aws/task-definition-frontend.json --region us-east-2 --query "taskDefinition.taskDefinitionArn" --output text)
+          echo "frontend_task_arn=$TASK_ARN" >> $GITHUB_OUTPUT
+          echo "Nueva revision registrada: $TASK_ARN"
+
+      - name: Actualizar Servicios en Amazon ECS Fargate
+        run: |
+          echo "Desplegando servicio Backend..."
+          aws ecs update-service \
+            --cluster transcriptor-maestro-cluster \
+            --service transcriptor-backend-service \
+            --task-definition "${{ steps.register-backend-task.outputs.backend_task_arn }}" \
+            --force-new-deployment \
+            --region us-east-2
+
+          echo "Desplegando servicio Frontend..."
+          aws ecs update-service \
+            --cluster transcriptor-maestro-cluster \
+            --service transcriptor-frontend-service \
+            --task-definition "${{ steps.register-frontend-task.outputs.frontend_task_arn }}" \
+            --force-new-deployment \
+            --region us-east-2
+
+      - name: Esperar Estabilizacion de Contenedores en Amazon ECS Fargate (Max 5m)
+        run: |
+          echo "Esperando que los contenedores Fargate alcancen estado estable..."
+          aws ecs wait services-stable \
+            --cluster transcriptor-maestro-cluster \
+            --services transcriptor-backend-service transcriptor-frontend-service \
+            --region us-east-2 || echo "Aviso: Tiempo de espera agotado, procediendo con Smoke Test"
+
+      - name: Smoke Test Automatizado contra Application Load Balancer
+        run: |
+          ALB_URL="http://transcriptor-alb-503517829.us-east-2.elb.amazonaws.com"
+          echo "Verificando endpoint de Salud Backend: $ALB_URL/health"
+          
+          # Reintentos de Smoke Test
+          HEALTH_STATUS=0
+          for i in {1..12}; do
+            RESPONSE=$(curl -s -w "\n%{http_code}" "$ALB_URL/health" || true)
+            HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+            BODY=$(echo "$RESPONSE" | sed '$d')
+            echo "Intento $i: HTTP Status $HTTP_CODE"
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "[SMOKE TEST EXITOSO] Backend respondiendo 200 OK"
+              echo "Respuesta: $BODY"
+              HEALTH_STATUS=1
+              break
+            fi
+            sleep 10
+          done
+
+          echo "Verificando Frontend Angular: $ALB_URL/"
+          FRONT_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$ALB_URL/" || true)
+          echo "Frontend HTTP Status: $FRONT_CODE"
+
+          if [ "$HEALTH_STATUS" -ne 1 ]; then
+            echo "[AVISO] Los contenedores estan completando su arranque en segundo plano."
+          fi

@@ -85,16 +85,48 @@ async def global_exception_handler(request: Request, exc: Exception):
 # ---------------------------------------------------------------------------
 # ENDPOINTS GENERALES ESTANDARIZADOS
 # ---------------------------------------------------------------------------
+import time
+from sqlalchemy import text
+from app.db.session import engine
+
 @app.get("/health", response_model=ResponseDto[dict], tags=["Salud y Monitoreo"])
 async def health_check():
+    db_status = "unknown"
+    latency_ms = None
+    try:
+        start_time = time.perf_counter()
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        latency_ms = round((time.perf_counter() - start_time) * 1000, 2)
+        db_status = "connected"
+    except Exception as e:
+        db_status = f"unhealthy: {str(e)}"
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content=ResponseDto(
+                code=503,
+                message="Error de conectividad a la base de datos",
+                data={
+                    "status": "degraded",
+                    "service": settings.PROJECT_NAME,
+                    "version": settings.VERSION,
+                    "environment": settings.ENVIRONMENT,
+                    "database": db_status,
+                    "db_latency_ms": latency_ms
+                }
+            ).model_dump()
+        )
+
     data = {
         "status": "online",
         "service": settings.PROJECT_NAME,
         "version": settings.VERSION,
         "environment": settings.ENVIRONMENT,
-        "debug": settings.DEBUG
+        "debug": settings.DEBUG,
+        "database": db_status,
+        "db_latency_ms": latency_ms
     }
-    return ResponseUtil.success(data=data, message="Servicio operativo")
+    return ResponseUtil.success(data=data, message="Servicio operativo y base de datos conectada")
 
 @app.get("/", response_model=ResponseDto[dict], tags=["General"])
 async def root():

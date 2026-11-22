@@ -1,0 +1,8 @@
+node_modules
+.angular
+dist
+.git
+.gitignore
+.editorconfig
+README.md
+*.spec.ts

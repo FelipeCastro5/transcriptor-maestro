@@ -1,0 +1,40 @@
+{
+  "family": "transcriptor-backend-task",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::331545063790:role/ecsTaskExecutionRole",
+  "containerDefinitions": [
+    {
+      "name": "backend",
+      "image": "331545063790.dkr.ecr.us-east-2.amazonaws.com/transcriptor-maestro-backend:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 8000,
+          "hostPort": 8000,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        { "name": "ENVIRONMENT", "value": "production" },
+        { "name": "DEBUG", "value": "false" }
+      ],
+      "secrets": [
+        {
+          "name": "DATABASE_URL",
+          "valueFrom": "arn:aws:secretsmanager:us-east-2:331545063790:secret:transcriptor/prod/database_url-HotNQ3"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/transcriptor-maestro",
+          "awslogs-region": "us-east-2",
+          "awslogs-stream-prefix": "backend"
+        }
+      }
+    }
+  ]
+}

@@ -16,8 +16,26 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "storage/audios_temp"
     OUTPUT_DIR: str = "storage/salidas"
 
-    # Base de Datos PostgreSQL local (con fallback inteligente a SQLite)
-    DATABASE_URL: str = "postgresql+pg8000://postgres:felipe@localhost:5432/transcriptor_db"
+    # Base de Datos PostgreSQL (parametrizado sin credenciales hardcodeadas)
+    DB_USER: str = "postgres"
+    DB_PASSWORD: str = ""
+    DB_HOST: str = "localhost"
+    DB_PORT: str = "5432"
+    DB_NAME: str = "transcriptor_db"
+    DATABASE_URL: str = ""
+
+    def model_post_init(self, __context) -> None:
+        if not self.DATABASE_URL:
+            if self.DB_PASSWORD:
+                self.DATABASE_URL = f"postgresql+pg8000://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+            else:
+                self.DATABASE_URL = f"postgresql+pg8000://{self.DB_USER}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+
+        # Normalizar para SQLAlchemy con driver puro pg8000
+        if self.DATABASE_URL.startswith("postgres://"):
+            self.DATABASE_URL = self.DATABASE_URL.replace("postgres://", "postgresql+pg8000://", 1)
+        elif self.DATABASE_URL.startswith("postgresql://") and not self.DATABASE_URL.startswith("postgresql+"):
+            self.DATABASE_URL = self.DATABASE_URL.replace("postgresql://", "postgresql+pg8000://", 1)
 
     # Credenciales IA (Tolerancia a fallos VACAS)
     DEEPSEEK_API_KEY: str = ""

@@ -39,7 +39,28 @@ def get_db():
 def init_db():
     """
     Crea todas las tablas si no existen y siembra datos iniciales de prueba (Proyecto y Responsables).
+    Ejecuta db/db.sql de manera idempotente en PostgreSQL.
     """
+    # Ejecutar migración canónica db/db.sql si estamos en PostgreSQL
+    from pathlib import Path
+    sql_candidates = [
+        settings.BASE_DIR.parent / "db" / "db.sql",
+        settings.BASE_DIR / "db" / "db.sql",
+        Path("db/db.sql"),
+        Path("/app/db/db.sql"),
+    ]
+    sql_path = next((p for p in sql_candidates if p.exists()), None)
+    if engine.dialect.name == "postgresql" and sql_path:
+        try:
+            sql_content = sql_path.read_text(encoding="utf-8")
+            with engine.begin() as conn:
+                statements = [stmt.strip() for stmt in sql_content.split(";") if stmt.strip()]
+                for stmt in statements:
+                    conn.execute(text(stmt))
+            print(f"[DB] Migración canónica {sql_path.name} aplicada exitosamente en PostgreSQL.")
+        except Exception as e_sql:
+            print(f"[DB-AVISO] Advertencia al aplicar migración DDL ({e_sql}). Continuando con Base.metadata.")
+
     Base.metadata.create_all(bind=engine)
 
     # Asegurar que la restricción CHECK en PostgreSQL soporte el estado 'CANCELADO'
