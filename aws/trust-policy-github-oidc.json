@@ -9,13 +9,13 @@
       "Action": "sts:AssumeRoleWithWebIdentity",
       "Condition": {
         "StringEquals": {
-          "token.actions.githubusercontent.com:aud": [
-            "sts.amazonaws.com",
-            "https://github.com/FelipeCastro5"
-          ]
+          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
         },
         "StringLike": {
-          "token.actions.githubusercontent.com:sub": "repo:FelipeCastro5/transcriptor-maestro:*"
+          "token.actions.githubusercontent.com:sub": [
+            "repo:FelipeCastro5/transcriptor-maestro:*",
+            "repo:felipecastro5/transcriptor-maestro:*"
+          ]
         }
       }
     }
