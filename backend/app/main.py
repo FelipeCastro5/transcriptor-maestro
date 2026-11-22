@@ -28,7 +28,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
-    description="Backend API para el Sistema Inteligente de Seguimiento de Acuerdos y Control de Proyectos.",
+    description="Backend API para el Sistema Inteligente de Seguimiento de Acuerdos y Control de Proyectos (Desplegado en Amazon ECS Fargate).",
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
     docs_url="/docs",
     redoc_url="/redoc",
