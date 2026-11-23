@@ -43,7 +43,7 @@ interface Proceso {
     } @else {
       <section class="grid-2">
         <div class="card">
-          <h2>1. Archivo de la reunión V0.2</h2>
+          <h2>1. Archivo de la reunión V0.3</h2>
           <div class="dropzone" [class.drag]="drag()"
                (click)="input.click()"
                (dragover)="$event.preventDefault(); drag.set(true)"
